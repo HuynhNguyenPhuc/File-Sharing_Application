@@ -6,35 +6,32 @@ from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import ThreadedFTPServer
 import logging
 import time
-
+# class MyHandler(FTPHandler):
+#     def __init__(self):
+#         FTPHandler.__init__(self)
+#     def on_file_sent(self, file):
+#         try:
+#             time.sleep(5)
+#             self.server.close_all()
+#             super().on_file_sent(file)
+#         except:
+#             print("Not closed")
 class Client:
     def __init__(self, server_host, server_port):
         """
-        Constructor: Initializes attributes
-        To be added more (I don't know)
+        Constructor: Initializes attributes, to be added more
         """
-        # Initialize server information
+        # Store information of the centralized server
         self.server_host = server_host
         self.server_port = server_port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket_to_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # Store information of the client
+        self.client_host = socket.gethostbyname(socket.gethostname())
         self.published_files = []
-
-        # Initialize FTP server
-        authorizer = DummyAuthorizer()
-        authorizer.add_user('user', '54321', '.', perm='rl')
-        authorizer.add_anonymous('.', perm='rl')
-        handler = FTPHandler
-        handler.authorizer = authorizer
-        handler.banner = "Connection Success"
-        # handler.masquerade_address = '171.227.71.146' # external IP address
-        # handler.passive_ports = range(60000, 65535)
-
-        self.server = ThreadedFTPServer(('0.0.0.0', 21), handler)
-        self.server.max_cons = 256
-        self.server.max_cons_per_ip = 5
-
-        logging.basicConfig(filename='tmp.log', level=logging.INFO) # log file
-    
+        self.ftp_server = None
+        
+        logging.basicConfig(filename='tmp.log', level=logging.INFO)
     
     def connect(self):
         """
@@ -47,26 +44,48 @@ class Client:
     def disconnect(self):
         """
         Disconnect from the P2P network
+
+        Return: None
         """
 
-    def ftp_server(self):
+    def initiate_ftp_server(self): # currently opcode 1
         """
         Allocate and establish the server for FTP connection
 
         Return: None
         """
-        pass
+        if self.ftp_server:
+            raise Exception('FTP server already on')
+        self.ftp_server = self.FTPServerSide()
+        self.ftp_server.start()
 
-    def ftp_client(self, host='localhost'):
+    def stop_ftp_server(self): # currently opcode 3
+        if not isinstance(self.ftp_server, self.FTPServerSide):
+            raise Exception('Not a server')
+        self.ftp_server.stop()
+        self.ftp_server = None
+
+    def inititate_ftp_client(self, host='localhost', dir='.', fname='test.txt'): # currently opcode 2
         """
         Establish an FTP connection to the host server
 
         Parameters:
         - host: client's IP address to connect
+        - dir: directory to connect to fname on server
+        - fname: the file name
 
         Return: None
         """
-        pass
+        ftp = FTP(host)  # connect to host, default port
+        ftp.login()
+        filepath = fname
+        if dir != '.':
+            filepath = dir + '/' + filepath
+        x = ''
+        with open('taken', 'wb') as fp:
+            ftp.retrbinary(f'RETR /sample_data_for_computer_networks/test.mp4', fp.write)
+        
+        ftp.quit()
 
     def publish(self, lname, fname):
         """
@@ -109,37 +128,44 @@ class Client:
         """
         pass
 
-    # These are for testing purposes of the libraries, do not use them
-    def testFTPClient(self, host='localhost', dir='.', fname='test.txt'):
-        ftp = FTP(host)  # connect to host, default port
-        ftp.login()
-        filepath = dir + '/' + fname
-        
-        with open('README', 'wb') as fp:
-            ftp.retrbinary(f'RETR {filepath}', fp.write)
-        
-        ftp.quit()
+    # FTP server on another thread
+    class FTPServerSide(threading.Thread):
+        def __init__(self):
+            threading.Thread.__init__(self)
+            
+        def run(self):
+            # Initialize FTP server
+            authorizer = DummyAuthorizer()
+            authorizer.add_user('user', '54321', '.', perm='rl')
+            authorizer.add_anonymous('.', perm='rl')
+            handler = FTPHandler
+            handler.authorizer = authorizer
+            handler.banner = "Connection Success"
+            # handler.masquerade_address = '171.227.71.146' # external IP address
+            # handler.passive_ports = range(60000, 65535)
 
-    def FTP_serve__(self):
-        thread1 = threading.Thread(target=self.server.serve_forever)
-        thread1.start()
-        # time.sleep(5)
-        # print(1)
+            self.server = ThreadedFTPServer(('0.0.0.0', 21), handler)
+            self.server.max_cons = 256
+            self.server.max_cons_per_ip = 5
+            self.server.serve_forever()
 
-    def FTP_shutdown__(self):
-        self.server.close_all()
+        def stop(self):
+            self.server.close_all()
+
 
 def main():
     obj = Client('localhost', 12345)
     while True:
         tmp = input('Choose opcode: ')
         if tmp == '1':
-            obj.FTP_serve__()
+            obj.initiate_ftp_server()
         elif tmp == '2':
-            obj.FTP_shutdown__()
+            # obj.inititate_ftp_client('localhost', '', 'D:/sample_data_for_computer_networks/test.txt')
+            obj.inititate_ftp_client('localhost', '', '')
         elif tmp == '3':
-            obj.testFTPClient()
+            obj.stop_ftp_server()
         else:
+            print("Stop")
             break
 
 if __name__ == '__main__':

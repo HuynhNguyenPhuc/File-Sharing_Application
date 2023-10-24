@@ -47,17 +47,6 @@ class Server(object):
         Returns:
         """
 
-    def broadcast(self, filename):
-        """
-        This function is used to broadcast asking one file from other clients
-
-        Parameters:
-        - filename (string): The name of file that requesting client searching for
-
-        Returns:
-        String: Address of client keeping that file
-        """
-
     def register(self, hostname, address):
         """
         This function is used to register hosts to system

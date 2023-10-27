@@ -37,8 +37,10 @@ class Server(object):
         - hostname: name of hostname
         - filename: name of file in client's resportity
         """
-
-        self.hostname_file[hostname].append(filename)
+        if hostname not in self.hostname_file.keys():
+            self.hostname_file[hostname] = [filename]
+        else:
+            self.hostname_file[hostname].append(filename)
 
     def register(self, hostname, address):
         """

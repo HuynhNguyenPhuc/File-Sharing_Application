@@ -7,6 +7,8 @@ class Server(object):
         self.server_ip = server_ip
         self.server_port = server_port
 
+        self.flag = TRUE
+
         # Create dictionary for TCP table
         self.hostname_to_ip = {}
         self.hostname_file = {}
@@ -15,8 +17,6 @@ class Server(object):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.server_ip, self.server_port))
 
-        # Client socket
-        self.client_socket = None
 
     def listen(self):
         """
@@ -28,6 +28,11 @@ class Server(object):
         """
         self.server_socket.listen()
         self.client_socket, addr = self.server_socket.accept()
+        while (True):
+            if (self.flag):
+                self.client_socket.recv(1024).encode()
+                self.flag = FALSE
+            
 
     def add(self, hostname, filename):
         """
@@ -93,6 +98,9 @@ class Server(object):
             # Reset the socket timeout
             self.client_socket.settimeout(None)
 
+        self.flag = TRUE
+        return
+
     def discover(self, hostname):
         """
         This function is used to discover local files in host named hostname
@@ -116,6 +124,7 @@ class Server(object):
         Returns:
         """
         self.client_socket.send(message)
+        self.flag = TRUE
         return
 
     def find(self, fname):

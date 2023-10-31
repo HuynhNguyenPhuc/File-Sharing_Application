@@ -19,21 +19,67 @@ import time
 #         except:
 #             print("Not closed")
 class Client:
-    def __init__(self, server_host, server_port):
+    def __init__(self, client_hostname, server_host, server_port):
         """
         Constructor: Initializes attributes, to be added more
         """
         # Store information of the centralized server
         self.server_host = server_host
         self.server_port = server_port
-        self.socket_to_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # Store information of the client
+        self.client_hostname = client_hostname
         self.client_host = socket.gethostbyname(socket.gethostname())
-        self.published_files = []
+        self.published_files = {}
         self.ftp_server = None
 
         logging.basicConfig(filename='tmp.log', level=logging.INFO)
+
+    def connect_to_tcp_server(self):
+        """
+
+        Connect to the TCP server
+
+        """
+        try:
+            self.client_socket.connect((self.server_host, self.server_port))
+            print("Sucessfully Connected!")
+            self.send_message_to_server(f'register {self.client_hostname}')
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    def disconnect_to_tcp_server(self):
+        """
+
+        Disconnect to the TCP server
+
+        """
+        self.client_socket.close()
+
+    def send_message_to_server(self, message):
+        """
+
+        Send encoded messgae to server
+
+        """
+        self.client_socket.send(message.encode())
+
+    def receive_ping_message(self):
+        """
+
+        Receive ping message from the server
+
+        """
+        try:
+            data = self.client_socket.recv(2048)
+            if data:
+                print(f"Ping message: {data.decode()}")
+                self.send_message_to_server("Sucessfully received!")
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def connect(self):
         """
@@ -99,7 +145,17 @@ class Client:
 
         Return: None
         """
-        pass
+        # Add file to repository
+        self.published_files[fname] = lname
+
+        # Send message to server
+        self.send_message_to_server(f'publish {fname}')
+        while True:
+            response = self.client_socket.recv(2048)
+            if response:
+                print(response)
+                break
+            time.sleep(1)
 
     def fetch(self, fname):
         """
@@ -110,7 +166,17 @@ class Client:
 
         Return: None
         """
-        pass
+        data = None
+
+        self.send_message_to_server('fetch ' + fname)
+
+        while True:
+            data = self.client_socket.recv(2048)
+            if data:
+                print(data)
+                break
+            time.sleep(1)
+        return
 
     # Dự phòng
     def __request_server__(self, fname):
@@ -156,19 +222,24 @@ class Client:
 
 
 def main():
-    obj = Client('localhost', 12345)
-    while True:
-        tmp = input('Choose opcode: ')
-        if tmp == '1':
-            obj.initiate_ftp_server()
-        elif tmp == '2':
-            # obj.inititate_ftp_client('localhost', '', 'D:/sample_data_for_computer_networks/test.txt')
-            obj.inititate_ftp_client('localhost', '', '')
-        elif tmp == '3':
-            obj.stop_ftp_server()
-        else:
-            print("Stop")
-            break
+    # obj = Client('localhost', 12345)
+    # while True:
+    #     tmp = input('Choose opcode: ')
+    #     if tmp == '1':
+    #         obj.initiate_ftp_server()
+    #     elif tmp == '2':
+    #         # obj.inititate_ftp_client('localhost', '', 'D:/sample_data_for_computer_networks/test.txt')
+    #         obj.inititate_ftp_client('localhost', '', '')
+    #     elif tmp == '3':
+    #         obj.stop_ftp_server()
+    #     else:
+    #         print("Stop")
+    #         break
+    client = Client('nguyenphuc', '10.230.143.196', 5000)
+    client.connect_to_tcp_server()
+    time.sleep(5)
+    client.publish('fffffff', 'text.txt')
+    # print(client.client_host)
 
 
 if __name__ == '__main__':

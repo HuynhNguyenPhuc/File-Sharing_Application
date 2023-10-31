@@ -10,35 +10,82 @@ import logging
 import time
 
 class Client:
-    def __init__(self, server_host, server_port):
+    def __init__(self, client_hostname, server_host, server_port):
         """
         Constructor: Initializes attributes, to be added more
         """
         # Store information of the centralized server
         self.server_host = server_host
         self.server_port = server_port
-        self.socket_to_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # Store information of the client
+        self.client_hostname = client_hostname
         self.client_host = socket.gethostbyname(socket.gethostname())
-        self.client_port = 55555
         self.published_files = {"file1.txt": "D:/Quan/testftp/test.txt", "file2.mp4": "D:/Quan/testftp/sample-30s.mp4", "file3.mp4": "D:/Quan/testftp/round_robin.mp4", "file4.xlsx": "D:/Quan/testftp/Book1.xlsx"}
         self.ftp_server = None
-        
+
         logging.basicConfig(filename='tmp.log', level=logging.INFO)
-    
+
+    def connect_to_tcp_server(self):
+        """
+
+        Connect to the TCP server
+
+        """
+        try:
+            self.client_socket.connect((self.server_host, self.server_port))
+            print("Sucessfully Connected!")
+            self.send_message_to_server(f'register {self.client_hostname}')
+            response = self.client_socket.recv(2048)
+            print(response)
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    def disconnect_to_tcp_server(self):
+        """
+
+        Disconnect to the TCP server
+
+        """
+        self.client_socket.close()
+
+    def send_message_to_server(self, message):
+        """
+
+        Send encoded messgae to server
+
+        """
+        self.client_socket.send(message.encode())
+
+    def receive_ping_message(self):
+        """
+
+        Receive ping message from the server
+
+        """
+        try:
+            data = self.client_socket.recv(2048)
+            if data:
+                print(f"Ping message: {data.decode()}")
+                self.send_message_to_server("Sucessfully received!")
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
     def connect(self):
         """
         Register server to join the P2P network
-        
+
         Return: None
         """
         pass
-    
+
     def disconnect(self):
         """
         Disconnect from the P2P network
-        
+
         Return: None
         """
     
@@ -52,7 +99,7 @@ class Client:
             raise Exception('FTP server already on')
         self.ftp_server = self.FTPServerSide()
         self.ftp_server.start()
-
+    
     def stop_ftp_server(self): # currently opcode 3
         if not isinstance(self.ftp_server, self.FTPServerSide):
             raise Exception('Not a server')
@@ -90,31 +137,53 @@ class Client:
     def publish(self, lname, fname):
         """
         A local file (which is stored in the client's file system at lname) is added to the client's repository as a file named fname and this information is conveyed to the server.
-        
+
         Parameters:
         - lname: The path to the file in local file system
         - fname: The file to be uploaded and published in the repository
-        
+
         Return: None
         """
-        pass
+        # Add file to repository
+        self.published_files[fname] = lname
 
+        # Send message to server
+        self.send_message_to_server(f'publish {fname}')
+        response = self.client_socket.recv(2048)
+        print(response)
+        # while True:
+        #     response = self.client_socket.recv(2048)
+        #     if response:
+        #         print(response)
+        #         break
+        #     time.sleep(1)
+    
     def fetch(self, fname):
         """
         fetch some copy of the target file and add it to the local repository
-        
+
         Parameters:
         - fname: The file to be downloaded
-        
+
         Return: None
         """
-        pass
+        data = None
+
+        self.send_message_to_server('fetch ' + fname)
+
+        while True:
+            data = self.client_socket.recv(2048)
+            if data:
+                print(data)
+                break
+            time.sleep(1)
+        return
         
     # Dự phòng
     def __request_server__(self, fname):
         """
         Request from the centralized server the list of hosts having the given file fname
-        
+
         Parameters:
         - fname: The file to be requested from the server
         
@@ -127,6 +196,7 @@ class Client:
         To be used to transfer file, not yet defined
         """
         pass
+    
     def check_cached(self, fname):
         filepath = "cache/" + fname
         if not os.path.exists(filepath):
@@ -136,7 +206,7 @@ class Client:
     class FTPServerSide(threading.Thread):
         def __init__(self):
             threading.Thread.__init__(self)
-            
+        
         def run(self):
             # Initialize FTP server
             authorizer = DummyAuthorizer()
@@ -158,20 +228,22 @@ class Client:
 
 
 def main():
-    obj = Client('localhost', 12345)
+    client = Client('nguyenphuc', 'localhost', 5000)
+    client.connect_to_tcp_server()
+    client.publish('fffffff', 'text.txt')
     while True:
         tmp = input('Choose opcode: ')
         if tmp == '1':
-            obj.initiate_ftp_server()
-            for a in obj.published_files.keys():
-                obj.check_cached(a)
+            client.initiate_ftp_server()
+            for a in client.published_files.keys():
+                client.check_cached(a)
         elif tmp == '2':
             # obj.inititate_ftp_client('localhost', '', 'D:/sample_data_for_computer_networks/test.txt')
-            obj.retrieve()
+            client.retrieve()
         elif tmp == '3':
-            obj.stop_ftp_server()
+            client.stop_ftp_server()
         elif tmp == '4':
-            obj.check_cached("test.txt")
+            client.check_cached("test.txt")
         else:
             print("Stop")
             break

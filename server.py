@@ -30,7 +30,7 @@ class Server(object):
         self.server_socket.listen()
         self.client_socket, addr = self.server_socket.accept()
         while (True):
-            self.request_queue.append(self.client_socket.recv(1024).encode())
+            self.request_queue.append(self.client_socket.recv(1024).decode())
 
             
 

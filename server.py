@@ -7,8 +7,6 @@ class Server(object):
         self.server_ip = server_ip
         self.server_port = server_port
 
-        self.flag = TRUE
-
         # Create dictionary for TCP table
         self.hostname_to_ip = {}
         self.hostname_file = {}
@@ -29,9 +27,8 @@ class Server(object):
         self.server_socket.listen()
         self.client_socket, addr = self.server_socket.accept()
         while (True):
-            if (self.flag):
-                self.client_socket.recv(1024).encode()
-                self.flag = FALSE
+                self.request_queue.append(self.client_socket.recv(1024).encode())
+
             
 
     def add(self, hostname, filename):

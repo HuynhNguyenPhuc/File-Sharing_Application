@@ -1,4 +1,5 @@
 import socket
+from threading import Thread
 import re
 
 
@@ -22,6 +23,10 @@ class Server(object):
         # Create request queue
         self.request_queue = list()
 
+        # Multi-thread lists for communication
+        self.register_queue = list()
+        self.publish_queue = list()
+
     def listen(self):
         """
         This function is used to listen to the request of the clients
@@ -32,18 +37,29 @@ class Server(object):
         """
         self.server_socket.listen()
         self.client_socket, addr = self.server_socket.accept()
+
+        # Flag for testing multi-thread
+        flag = True
+
         while True:
             message = self.client_socket.recv(1024).decode()
             if not message:
                 break
             print(message)
-            self.request_queue.append(message)
-            self.work_on_message(message)
+            if flag:
+                self.register_queue.append(message)
+                flag = False
+            else:
+                self.publish_queue.append(message)
+                break
+            # self.request_queue.append(message)
+
+            # self.work_on_message(message)
 
     def work_on_message(self, message):
         self.response(message)
 
-    def add(self, hostname, filename):
+    def add(self, hostname='abc', filename='abc'):
         """
         This function is used to add new file when receive publish function from client
 
@@ -51,12 +67,16 @@ class Server(object):
         - hostname: name of hostname
         - filename: name of file in client's resportity
         """
-        if hostname not in self.hostname_file.keys():
-            self.hostname_file[hostname] = [filename]
-        else:
-            self.hostname_file[hostname].append(filename)
+        while True:
+            if len(self.publish_queue) > 0:
+                message = self.publish_queue.pop()
+                # if hostname not in self.hostname_file.keys():
+                #     self.hostname_file[hostname] = [filename]
+                # else:
+                #     self.hostname_file[hostname].append(filename)
+                self.response(message)
 
-    def register(self, hostname, address):
+    def register(self, hostname='abc', address='abc'):
         """
         This function is used to register hosts to system
 
@@ -67,8 +87,13 @@ class Server(object):
         Returns:
         Boolean: Successful or not
         """
-        self.hostname_to_ip[hostname] = address
-        self.hostname_file[hostname] = []
+        while True:
+            if len(self.register_queue) > 0:
+                message = self.register_queue.pop()
+                # self.hostname_to_ip[hostname] = address
+                # self.hostname_file[hostname] = []
+                # print(self.hostname_to_ip)
+                self.response(message)
 
     def ping(self, hostname, timeout=1000):
         """
@@ -155,6 +180,20 @@ class Server(object):
 
         return hosts_with_file
 
+    def run(self):
+        listenning_thread = Thread(target=self.listen)
+        register_thread = Thread(target=self.register)
+        publish_thread = Thread(target=self.add)
+
+        listenning_thread.start()
+        register_thread.start()
+        publish_thread.start()
+
+        listenning_thread.join()
+        register_thread.join()
+        publish_thread.join()
+
+
 
 server = Server('192.168.1.9', 5000)
-server.listen()
+server.run()

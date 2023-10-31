@@ -15,8 +15,6 @@ class Server(object):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.server_ip, self.server_port))
 
-        # Client socket
-        self.client_socket = None
 
     def listen(self):
         """
@@ -28,6 +26,10 @@ class Server(object):
         """
         self.server_socket.listen()
         self.client_socket, addr = self.server_socket.accept()
+        while (True):
+                self.request_queue.append(self.client_socket.recv(1024).encode())
+
+            
 
     def add(self, hostname, filename):
         """
@@ -56,7 +58,7 @@ class Server(object):
         self.hostname_to_ip[hostname] = address
         self.hostname_file[hostname] = []
 
-    def ping(self, hostname, timeout=10):
+    def ping(self, hostname, timeout=1000):
         """
         This function is used to check live host named hostname
 
@@ -66,7 +68,7 @@ class Server(object):
         Returns:
         Boolean: Whether that host is live or not
         """
-
+        
         client_ip = self.hostname_to_ip[hostname]
 
         if client_ip is None:
@@ -93,6 +95,9 @@ class Server(object):
             # Reset the socket timeout
             self.client_socket.settimeout(None)
 
+        self.flag = TRUE
+        return
+
     def discover(self, hostname):
         """
         This function is used to discover local files in host named hostname
@@ -104,8 +109,8 @@ class Server(object):
         List: List of local files of the host
 
         """
-        message = self.hostname_file[hostname]
-        self.client_socket.send(message)
+        host_local_files = self.hostname_file[hostname]
+        return host_local_files
 
     def response(self, message):
         """
@@ -115,6 +120,9 @@ class Server(object):
         -message: message want to send to client
         Returns:
         """
+        self.client_socket.send(message)
+        self.flag = TRUE
+        return
 
     def find(self, fname):
         """

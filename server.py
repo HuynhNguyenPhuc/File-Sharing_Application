@@ -3,6 +3,7 @@ from threading import Thread
 import re
 
 
+
 class Server(object):
     def __init__(self, server_ip, server_port):
         # The server's IP address and port number

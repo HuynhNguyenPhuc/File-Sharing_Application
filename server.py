@@ -16,9 +16,11 @@ class Server(object):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.server_ip, self.server_port))
 
+        # Create client socket
+        self.client_socket = None
+
         # Create request queue
         self.request_queue = list()
-
 
     def listen(self):
         """
@@ -32,6 +34,8 @@ class Server(object):
         self.client_socket, addr = self.server_socket.accept()
         while True:
             message = self.client_socket.recv(1024).decode()
+            if not message:
+                break
             print(message)
             self.request_queue.append(message)
             self.work_on_message(message)
@@ -128,7 +132,7 @@ class Server(object):
         -message: message want to send to client
         Returns:
         """
-        self.client_socket.send(message)
+        self.client_socket.send(message.encode())
         self.flag = True
         return
 

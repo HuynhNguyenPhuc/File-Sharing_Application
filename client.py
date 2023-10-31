@@ -46,6 +46,8 @@ class Client:
             self.client_socket.connect((self.server_host, self.server_port))
             print("Sucessfully Connected!")
             self.send_message_to_server(f'register {self.client_hostname}')
+            response = self.client_socket.recv(2048)
+            print(response)
 
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -150,12 +152,14 @@ class Client:
 
         # Send message to server
         self.send_message_to_server(f'publish {fname}')
-        while True:
-            response = self.client_socket.recv(2048)
-            if response:
-                print(response)
-                break
-            time.sleep(1)
+        response = self.client_socket.recv(2048)
+        print(response)
+        # while True:
+        #     response = self.client_socket.recv(2048)
+        #     if response:
+        #         print(response)
+        #         break
+        #     time.sleep(1)
 
     def fetch(self, fname):
         """
@@ -235,9 +239,9 @@ def main():
     #     else:
     #         print("Stop")
     #         break
-    client = Client('nguyenphuc', '10.230.143.196', 5000)
+    client = Client('nguyenphuc', '192.168.1.9', 5000)
     client.connect_to_tcp_server()
-    time.sleep(5)
+    # time.sleep(10)
     client.publish('fffffff', 'text.txt')
     # print(client.client_host)
 

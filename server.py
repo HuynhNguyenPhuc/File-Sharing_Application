@@ -66,7 +66,7 @@ class Server(object):
         Returns:
         Boolean: Whether that host is live or not
         """
-
+        
         client_ip = self.hostname_to_ip[hostname]
 
         if client_ip is None:
@@ -104,8 +104,8 @@ class Server(object):
         List: List of local files of the host
 
         """
-        message = self.hostname_file[hostname]
-        self.client_socket.send(message)
+        host_local_files = self.hostname_file[hostname]
+        return host_local_files
 
     def response(self, message):
         """
@@ -115,6 +115,8 @@ class Server(object):
         -message: message want to send to client
         Returns:
         """
+        self.client_socket.send(message)
+        return
 
     def find(self, fname):
         """

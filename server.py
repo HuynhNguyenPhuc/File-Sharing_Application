@@ -55,7 +55,28 @@ class Server(object):
             # self.request_queue.append(message)
 
             # self.work_on_message(message)
+    """
+    def handle_client(self, client_socket):
+    try:
+        while True:
+            message = client_socket.recv(1024).decode()
+            if not message:  # Client has disconnected
+                break
+            print(message)
+            # Add your message handling logic here
+    except Exception as e:
+        print(f"Error handling client: {e}")
+    finally:
+        client_socket.close()
 
+    def listen(self):
+        while True:
+            client_socket, addr = self.server_socket.accept()
+            self.clients.append(client_socket)
+            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
+            client_thread.start()
+    """
+    
     def work_on_message(self, message):
         self.response(message)
 

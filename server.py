@@ -95,7 +95,7 @@ class Server(object):
             # Reset the socket timeout
             self.client_socket.settimeout(None)
 
-        self.flag = TRUE
+        self.flag = True
         return
 
     def discover(self, hostname):
@@ -121,7 +121,7 @@ class Server(object):
         Returns:
         """
         self.client_socket.send(message)
-        self.flag = TRUE
+        self.flag = True
         return
 
     def find(self, fname):
@@ -144,5 +144,5 @@ class Server(object):
         return hosts_with_file
 
 
-server = Server('10.230.143.196', 5000)
+server = Server('192.168.1.9', 5000)
 server.listen()

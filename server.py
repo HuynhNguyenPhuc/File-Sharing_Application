@@ -15,6 +15,9 @@ class Server(object):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.server_ip, self.server_port))
 
+        # Create request queue
+        self.request_queue = list()
+
 
     def listen(self):
         """
@@ -27,7 +30,7 @@ class Server(object):
         self.server_socket.listen()
         self.client_socket, addr = self.server_socket.accept()
         while (True):
-                self.request_queue.append(self.client_socket.recv(1024).encode())
+            self.request_queue.append(self.client_socket.recv(1024).encode())
 
             
 

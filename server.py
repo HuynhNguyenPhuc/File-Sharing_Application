@@ -56,7 +56,7 @@ class Server(object):
         self.hostname_to_ip[hostname] = address
         self.hostname_file[hostname] = []
 
-    def ping(self, hostname, timeout=10):
+    def ping(self, hostname, timeout=1000):
         """
         This function is used to check live host named hostname
 

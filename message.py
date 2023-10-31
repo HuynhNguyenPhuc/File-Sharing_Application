@@ -1,4 +1,6 @@
 from enum import Enum
+from json import loads
+
 class Type(Enum):
     SEND = 0
     RECEIVE = 1
@@ -13,7 +15,12 @@ class Header(Enum):
     RETRIEVE_PROCEED = 6
 
 class Message:
-    def __init__(self, header, type, info):
+    def __init__(self, header, type, info, json_string=None):
+        if json_string:
+            tmp = loads(json_string)
+            header = tmp['_header']
+            type = tmp['_type']
+            info = tmp['_info']
         self._header = header
         self._type = type
         self._info = info

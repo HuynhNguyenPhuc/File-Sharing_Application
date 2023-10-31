@@ -116,6 +116,25 @@ class Server(object):
         Returns:
         """
 
+    def find(self, fname):
+        """
+        This function is used to find clients who have file named fname
+
+        Parameters:
+        - fname: Name of target file
+
+        Returns: 
+        List: list of clients having file fname
+        """
+
+        hosts_with_file = []
+        
+        for host, files in self.hostname_file.items():
+            if fname in files:
+                hosts_with_file.append(host)
+
+        return hosts_with_file
+
 
 server = Server('10.230.143.196', 5000)
 server.listen()

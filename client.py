@@ -28,6 +28,7 @@ class Client:
         self.message_queue = [] # Synchronized message queue
         self.mutex_queue = Lock()
         self.isRunning = True
+        self.isFTPRunning = False
         self.t: list[Thread] = []
     
     def connect(self):
@@ -59,6 +60,11 @@ class Client:
         
         Return: None
         """
+        try:
+            self.stop_ftp_server()
+        except Exception as e:
+            print(f"Disconnect FTP server forbidden: {e}")
+        self.isRunning = False
         message = Message(Header.END_CONNECTION, Type.REQUEST, None)
         self.send_message_to_server(message)
         time.sleep(1)
@@ -128,16 +134,20 @@ class Client:
         
         Return: None
         """
-        if self.ftp_server:
-            raise Exception('FTP server already on')
-        self.ftp_server = self.FTPServerSide()
+        if isinstance(self.ftp_server, self.FTPServerSide) and self.isFTPRunning:
+            return
+        self.ftp_server = self.FTPServerSide(self.__check_cached__)
         self.ftp_server.start()
+        self.isFTPRunning = True
     
     def stop_ftp_server(self): # currently opcode 3, to be added in disconnect()/destructor
         if not isinstance(self.ftp_server, self.FTPServerSide):
-            raise Exception('Not a server')
+            raise Exception('Not an FTP server')
+        if isinstance(self.ftp_server, self.FTPServerSide) and not self.isFTPRunning:
+            return
         self.ftp_server.stop()
-        self.ftp_server = None
+        self.ftp_server.join()
+        self.isFTPRunning = False
     
     def retrieve(self, fname='file1.txt', host='localhost'):
         """
@@ -268,18 +278,24 @@ class Client:
         
         Returns: None
         """
-        filepath = "cache/" + fname
-        if not os.path.exists(filepath):
-            shutil.copy2(self.published_files[fname], "cache/" + fname)
+        cached_dir = "cache/"
+        if not os.path.exists(cached_dir):
+            os.mkdir(cached_dir)
+        if fname and fname in self.published_files:
+            filepath = cached_dir + fname
+            if not os.path.exists(filepath):
+                shutil.copy2(self.published_files[fname], cached_dir + fname)
     
     #  FTP server on another thread
     class FTPServerSide(Thread):
-        def __init__(self):
+        def __init__(self, check_cache):
             Thread.__init__(self)
+            self.check_cache = check_cache
         
         def run(self):
             # Initialize FTP server
             authorizer = DummyAuthorizer()
+            self.check_cache(None)
             authorizer.add_user('mmt', 'hk231', './cache', perm='rl')
             handler = FTPHandler
             handler.authorizer = authorizer
@@ -305,11 +321,13 @@ def main():
         elif tmp == '2':
             client.fetch('file3.mp4')
         elif tmp == '3':
-            client.stop_ftp_server()
+            try:
+                client.stop_ftp_server()
+            except Exception as e:
+                print(f"Disconnect FTP server forbidden: {e}")
         else:
             print("Stop")
             break
-    client.isRunning = False
     client.disconnect()
 
 if __name__ == '__main__':

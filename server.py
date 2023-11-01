@@ -1,6 +1,8 @@
 import socket
 from threading import Thread
 import re
+import json
+from message import Message, Type, Header
 
 
 class Server(object):
@@ -10,8 +12,9 @@ class Server(object):
         self.server_port = server_port
 
         # Create dictionary for TCP table
-        self.hostname_to_ip = {}
-        self.hostname_file = {}
+        self.hostname_to_ip = {'minhquan': '192.168.1.5'}
+        self.hostname_file = {'minhquan': ['file1.txt', 'file3.mp4']}
+        self.ip_socket = {}
 
         # Create a socket and bind it to the server's IP and port
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,56 +30,52 @@ class Server(object):
         self.register_queue = list()
         self.publish_queue = list()
 
-    def listen(self):
-        """
-        This function is used to listen to the request of the clients
-
-        Parametesrs:
-
-        Returns:
-        """
-        self.server_socket.listen()
-        self.client_socket, addr = self.server_socket.accept()
-
-        # Flag for testing multi-thread
-        flag = True
-
-        while True:
-            message = self.client_socket.recv(1024).decode()
-            if not message:
-                break
-            print(message)
-            if flag:
-                self.register_queue.append(message)
-                flag = False
-            else:
-                self.publish_queue.append(message)
-                break
-            # self.request_queue.append(message)
-
-            # self.work_on_message(message)
-    """
     def handle_client(self, client_socket):
-    try:
-        while True:
-            message = client_socket.recv(1024).decode()
-            if not message:  # Client has disconnected
-                break
-            print(message)
-            # Add your message handling logic here
-    except Exception as e:
-        print(f"Error handling client: {e}")
-    finally:
-        client_socket.close()
+        try:
+            while True:
+                print("hearing")
+                message = client_socket.recv(1024).decode()
+                if not message:  # Client has disconnected
+                    break
+                print(message)
+                message = Message(None, None, None, message)
+                header = message.get_header()
+                # ----------------------------------------------------------------
+                # Message from Cao Minh Quan: This is the least that the server has to implement to assist file transfer functionality
+                # Whatever you do, please ask me before changing this code
+                if header == Header.TAKE_HOST_LIST:
+                    print("send host list")
+                    fname = message.get_info()
+                    response = Message(Header.TAKE_HOST_LIST, Type.RESPONSE, self.find(fname))
+                    client_socket.send(json.dumps(response.get_packet()).encode())
+                elif header == Header.RETRIEVE_REQUEST:
+                    hostip, fname = message.get_info()
+                    print(hostip)
+                    print(self.ip_socket[hostip])
+                    request = Message(Header.RETRIEVE_REQUEST, Type.RESPONSE, message.get_info())
+                    self.ip_socket[hostip].send(json.dumps(request.get_packet()).encode())
+                    print("OK")
+                    data = self.ip_socket[hostip].recv(2048)
+                    response = Message(Header.RETRIEVE_PROCEED, Type.RESPONSE, None)
+                    client_socket.send(json.dumps(response.get_packet()).encode())
+                elif header == Header.END_CONNECTION:
+                    break
+                # End of Cao Minh Quan needs
+                # ----------------------------------------------------------------
+                # Add your message handling logic here
+        except Exception as e:
+            print(f"Error handling client: {e}")
+        finally:
+            client_socket.close()
 
     def listen(self):
+        self.server_socket.listen()
         while True:
             client_socket, addr = self.server_socket.accept()
-            self.clients.append(client_socket)
-            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
+            self.ip_socket[addr[0]] = client_socket
+            client_thread = Thread(target=self.handle_client, args=(client_socket,))
             client_thread.start()
-    """
-    
+
     def work_on_message(self, message):
         self.response(message)
 
@@ -126,7 +125,7 @@ class Server(object):
         Returns:
         Boolean: Whether that host is live or not
         """
-        
+
         client_ip = self.hostname_to_ip[hostname]
 
         if client_ip is None:
@@ -189,15 +188,15 @@ class Server(object):
         Parameters:
         - fname: Name of target file
 
-        Returns: 
+        Returns:
         List: list of clients having file fname
         """
 
         hosts_with_file = []
-        
+
         for host, files in self.hostname_file.items():
             if fname in files:
-                hosts_with_file.append(host)
+                hosts_with_file.append((host, self.hostname_to_ip[host]))
 
         return hosts_with_file
 
@@ -215,6 +214,5 @@ class Server(object):
         publish_thread.join()
 
 
-
-server = Server('192.168.1.9', 5000)
+server = Server('192.168.1.5', 5000)
 server.run()

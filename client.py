@@ -66,7 +66,7 @@ class Client:
         for thread in self.t:
             thread.join()
     
-    def send_message_to_server(self, message:Message):
+    def send_message_to_server(self, message: Message):
         """
         Send encoded message to server
         """
@@ -295,22 +295,23 @@ class Client:
             self.server.close_all()
 
 def main():
-    client = Client('minhquan', '192.168.1.5', 5000)
+    client = Client('minhquan', '192.168.43.244', 5000)
     client.connect()
-    # client.publish('fffffff', 'text.txt')
-    while True:
-        tmp = input('Choose opcode: ')
-        if tmp == '1':
-            client.initiate_ftp_server()
-        elif tmp == '2':
-            client.fetch('file3.mp4')
-        elif tmp == '3':
-            client.stop_ftp_server()
-        else:
-            print("Stop")
-            break
-    client.isRunning = False
-    client.disconnect()
+    time.sleep(2)
+    client.publish('fffffff', 'text.txt')
+    # while True:
+    #     tmp = input('Choose opcode: ')
+    #     if tmp == '1':
+    #         client.initiate_ftp_server()
+    #     elif tmp == '2':
+    #         client.fetch('file3.mp4')
+    #     elif tmp == '3':
+    #         client.stop_ftp_server()
+    #     else:
+    #         print("Stop")
+    #         break
+    # client.isRunning = False
+    # client.disconnect()
 
 if __name__ == '__main__':
     main()

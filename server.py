@@ -20,9 +20,6 @@ class Server(object):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.server_ip, self.server_port))
 
-        # Create client socket
-        self.client_socket = None
-
         # Create request queue
         self.request_queue = list()
 

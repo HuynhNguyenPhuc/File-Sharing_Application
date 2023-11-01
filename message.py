@@ -1,9 +1,11 @@
 from enum import Enum
 from json import loads
 
+
 class Type(Enum):
     REQUEST = 0
     RESPONSE = 1
+
 
 class Header(Enum):
     PING = 0
@@ -15,6 +17,8 @@ class Header(Enum):
     RETRIEVE_PROCEED = 6
     LOG_IN = 7
     LOG_OUT = 8
+    END_CONNECTION = 9
+
 
 class Message:
     def __init__(self, header, type, info, json_string=None):
@@ -26,15 +30,15 @@ class Message:
         self._header = header
         self._type = type
         self._info = info
-    
+
     def get_header(self):
         return self._header
-    
+
     def get_type(self):
         return self._type
-    
+
     def get_info(self):
         return self._info
-    
+
     def get_packet(self):
         return {'header': self._header.value, 'type': self._type.value, 'info': self._info}

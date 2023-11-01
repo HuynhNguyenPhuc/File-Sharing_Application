@@ -40,9 +40,6 @@ class Server(object):
                 print(message)
                 message = Message(None, None, None, message)
                 header = message.get_header()
-                # ----------------------------------------------------------------
-                # Message from Cao Minh Quan: This is the least that the server has to implement to assist file transfer functionality
-                # Whatever you do, please ask me before changing this code
                 if header == Header.TAKE_HOST_LIST:
                     print("send host list")
                     fname = message.get_info()
@@ -75,9 +72,6 @@ class Server(object):
             self.ip_socket[addr[0]] = client_socket
             client_thread = Thread(target=self.handle_client, args=(client_socket,))
             client_thread.start()
-
-    def work_on_message(self, message):
-        self.response(message)
 
     def add(self, hostname='abc', filename='abc'):
         """
@@ -214,5 +208,5 @@ class Server(object):
         publish_thread.join()
 
 
-server = Server('192.168.1.5', 5000)
+server = Server('192.168.43.244', 5000)
 server.run()

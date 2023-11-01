@@ -13,7 +13,8 @@ class Server(object):
 
         # Create dictionary for TCP table
         self.hostname_to_ip = {'minhquan': '192.168.1.9'}
-        self.hostname_file = {'minhquan': ['file1.txt', 'file3.mp4']}
+        self.ip_to_hostname = {'192.168.1.9': 'minhquan'}
+        self.hostname_file = {'minhquan': []}
         self.ip_socket = {}
 
         # Create a socket and bind it to the server's IP and port
@@ -39,11 +40,11 @@ class Server(object):
         while True:
             client_socket, addr = self.server_socket.accept()
             self.ip_socket[addr[0]] = client_socket
-            print(addr)
-            client_thread = Thread(target=self.handle_client, args=(client_socket,))
+            hostname = self.ip_to_hostname[addr[0]]
+            client_thread = Thread(target=self.handle_client, args=(client_socket, hostname,))
             client_thread.start()
 
-    def handle_client(self, client_socket):
+    def handle_client(self, client_socket, hostname):
         try:
             while True:
                 # Listen to message from client
@@ -70,6 +71,11 @@ class Server(object):
                 elif message_header == Header.RETRIEVE_REQUEST:
                     self.retrieve_host(client_socket, message)
 
+                # REQUEST, PUBLISH
+                elif message_header == Header.PUBLISH:
+                    self.add(client_socket, hostname, message)
+                    print(self.hostname_file)
+
                 elif message_header == Header.END_CONNECTION:
                     break
                 # End of Cao Minh Quan needs
@@ -80,12 +86,12 @@ class Server(object):
         finally:
             client_socket.close()
 
-    def take_host_list(self, client_socket, message: Message):
+    def take_host_list(self, client_socket, message):
         fname = message.get_info()
         response_message = Message(Header.TAKE_HOST_LIST, Type.RESPONSE, self.find(fname))
         self.response(client_socket, response_message)
 
-    def retrieve_host(self, client_socket, message: Message):
+    def retrieve_host(self, client_socket, message):
         hostip, fname = message.get_info()
         print(hostip)
         print(self.ip_socket)
@@ -93,37 +99,17 @@ class Server(object):
         self.ip_socket[hostip].send(json.dumps(request.get_packet()).encode())
         print("OK")
         data = self.ip_socket[hostip].recv(2048)
-        response = Message(Header.RETRIEVE_PROCEED, Type.RESPONSE, None)
-        client_socket.send(json.dumps(response.get_packet()).encode())
+        response_message = Message(Header.RETRIEVE_PROCEED, Type.RESPONSE, None)
+        self.response(client_socket, response_message)
 
-    def add(self, hostname='abc', filename='abc'):
-        """
-        This method is used to add new file when receive publish function from client
-
-        Parameters:
-        - hostname: name of hostname
-        - filename: name of file in client's resportity
-        """
-        while True:
-            if len(self.publish_queue) > 0:
-                message = self.publish_queue.pop()
-                # if hostname not in self.hostname_file.keys():
-                #     self.hostname_file[hostname] = [filename]
-                # else:
-                #     self.hostname_file[hostname].append(filename)
-                self.response(message)
+    def add(self, client_socket, hostname, message):
+        fname_tuple = message.get_info()
+        fname = list(fname_tuple.keys())[0]
+        self.hostname_file[hostname].append(fname)
+        response_message = Message(Header.PUBLISH, Type.RESPONSE, 'OK')
+        self.response(client_socket, response_message)
 
     def register(self, hostname='abc', address='abc'):
-        """
-        This function is used to register hosts to system
-
-        Parameters:
-        - hostname (string): Name of host
-        - address (string): Address of host
-
-        Returns:
-        Boolean: Successful or not
-        """
         while True:
             if len(self.register_queue) > 0:
                 message = self.register_queue.pop()
@@ -133,16 +119,6 @@ class Server(object):
                 self.response(message)
 
     def ping(self, hostname, timeout=1000):
-        """
-        This function is used to check live host named hostname
-
-        Parameters:
-        - hostname (string): Name of host
-
-        Returns:
-        Boolean: Whether that host is live or not
-        """
-
         client_ip = self.hostname_to_ip[hostname]
 
         if client_ip is None:
@@ -205,15 +181,18 @@ class Server(object):
 
         return hosts_with_file
 
-    def response(self, client_socket, message: Message):
+    @staticmethod
+    def response(client_socket, message: Message):
         """
         This function is used to reponse to the request of the clients
 
         Parameters:
         -message: message want to send to client
+
         Returns:
         """
         client_socket.send(json.dumps(message.get_packet()).encode())
+
 
 server = Server('192.168.1.9', 5000)
 server.listen()

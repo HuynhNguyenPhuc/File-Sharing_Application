@@ -10,6 +10,7 @@ import shutil
 import json
 import time
 
+
 class Client:
     def __init__(self, client_hostname, server_host, server_port):
         """
@@ -293,26 +294,3 @@ class Client:
         
         def stop(self):
             self.server.close_all()
-
-def main():
-    client = Client('minhquan', '192.168.1.9', 5000)
-    client.connect()
-    # time.sleep(2)
-    # client.fetch('file1.txt')
-    # client.publish('fffffff', 'text.txt')
-    # while True:
-    #     tmp = input('Choose opcode: ')
-    #     if tmp == '1':
-    #         client.initiate_ftp_server()
-    #     elif tmp == '2':
-    #         client.fetch('file3.mp4')
-    #     elif tmp == '3':
-    #         client.stop_ftp_server()
-    #     else:
-    #         print("Stop")
-    #         break
-    # client.isRunning = False
-    # client.disconnect()
-
-if __name__ == '__main__':
-    main()

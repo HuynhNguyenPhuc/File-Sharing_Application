@@ -12,7 +12,7 @@ class Server(object):
         self.server_port = server_port
 
         # Create dictionary for TCP table
-        self.hostname_to_ip = {'minhquan': '192.168.1.5'}
+        self.hostname_to_ip = {'minhquan': '192.168.1.9'}
         self.hostname_file = {'minhquan': ['file1.txt', 'file3.mp4']}
         self.ip_socket = {}
 
@@ -27,32 +27,50 @@ class Server(object):
         self.register_queue = list()
         self.publish_queue = list()
 
+    def listen(self):
+        """
+        This method is used for listen to connecting request from clients
+
+        Parameters:
+
+        Return:
+        """
+        self.server_socket.listen()
+        while True:
+            client_socket, addr = self.server_socket.accept()
+            self.ip_socket[addr[0]] = client_socket
+            print(addr)
+            client_thread = Thread(target=self.handle_client, args=(client_socket,))
+            client_thread.start()
+
     def handle_client(self, client_socket):
         try:
             while True:
-                print("hearing")
+                # Listen to message from client
+                print("Listening...")
                 message = client_socket.recv(1024).decode()
-                if not message:  # Client has disconnected
+
+                # Clients have terminated the connection
+                if not message:
                     break
-                print(message)
+
+                # print(message)
+
+                # Retrieve header and type
                 message = Message(None, None, None, message)
-                header = message.get_header()
-                if header == Header.TAKE_HOST_LIST:
-                    print("send host list")
-                    fname = message.get_info()
-                    response = Message(Header.TAKE_HOST_LIST, Type.RESPONSE, self.find(fname))
-                    client_socket.send(json.dumps(response.get_packet()).encode())
-                elif header == Header.RETRIEVE_REQUEST:
-                    hostip, fname = message.get_info()
-                    print(hostip)
-                    print(self.ip_socket[hostip])
-                    request = Message(Header.RETRIEVE_REQUEST, Type.RESPONSE, message.get_info())
-                    self.ip_socket[hostip].send(json.dumps(request.get_packet()).encode())
-                    print("OK")
-                    data = self.ip_socket[hostip].recv(2048)
-                    response = Message(Header.RETRIEVE_PROCEED, Type.RESPONSE, None)
-                    client_socket.send(json.dumps(response.get_packet()).encode())
-                elif header == Header.END_CONNECTION:
+                message_header = message.get_header()
+                message_type = message.get_type()
+
+                # Handle each kind of message
+                # REQUEST, TAKE_HOST_LIST
+                if message_header == Header.TAKE_HOST_LIST:
+                    self.take_host_list(client_socket, message)
+
+                # REQUEST, RETRIEVE_REQUEST
+                elif message_header == Header.RETRIEVE_REQUEST:
+                    self.retrieve_host(client_socket, message)
+
+                elif message_header == Header.END_CONNECTION:
                     break
                 # End of Cao Minh Quan needs
                 # ----------------------------------------------------------------
@@ -62,17 +80,25 @@ class Server(object):
         finally:
             client_socket.close()
 
-    def listen(self):
-        self.server_socket.listen()
-        while True:
-            client_socket, addr = self.server_socket.accept()
-            self.ip_socket[addr[0]] = client_socket
-            client_thread = Thread(target=self.handle_client, args=(client_socket,))
-            client_thread.start()
+    def take_host_list(self, client_socket, message: Message):
+        fname = message.get_info()
+        response_message = Message(Header.TAKE_HOST_LIST, Type.RESPONSE, self.find(fname))
+        self.response(client_socket, response_message)
+
+    def retrieve_host(self, client_socket, message: Message):
+        hostip, fname = message.get_info()
+        print(hostip)
+        print(self.ip_socket)
+        request = Message(Header.RETRIEVE_REQUEST, Type.RESPONSE, message.get_info())
+        self.ip_socket[hostip].send(json.dumps(request.get_packet()).encode())
+        print("OK")
+        data = self.ip_socket[hostip].recv(2048)
+        response = Message(Header.RETRIEVE_PROCEED, Type.RESPONSE, None)
+        client_socket.send(json.dumps(response.get_packet()).encode())
 
     def add(self, hostname='abc', filename='abc'):
         """
-        This function is used to add new file when receive publish function from client
+        This method is used to add new file when receive publish function from client
 
         Parameters:
         - hostname: name of hostname
@@ -160,18 +186,6 @@ class Server(object):
         host_local_files = self.hostname_file[hostname]
         return host_local_files
 
-    def response(self, message):
-        """
-        This function is used to reponse to the request of the clients
-
-        Parameters:
-        -message: message want to send to client
-        Returns:
-        """
-        self.client_socket.send(message.encode())
-        self.flag = True
-        return
-
     def find(self, fname):
         """
         This function is used to find clients who have file named fname
@@ -191,19 +205,15 @@ class Server(object):
 
         return hosts_with_file
 
-    def run(self):
-        listenning_thread = Thread(target=self.listen)
-        register_thread = Thread(target=self.register)
-        publish_thread = Thread(target=self.add)
+    def response(self, client_socket, message: Message):
+        """
+        This function is used to reponse to the request of the clients
 
-        listenning_thread.start()
-        register_thread.start()
-        publish_thread.start()
+        Parameters:
+        -message: message want to send to client
+        Returns:
+        """
+        client_socket.send(json.dumps(message.get_packet()).encode())
 
-        listenning_thread.join()
-        register_thread.join()
-        publish_thread.join()
-
-
-server = Server('192.168.43.244', 5000)
-server.run()
+server = Server('192.168.1.9', 5000)
+server.listen()

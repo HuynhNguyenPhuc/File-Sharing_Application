@@ -295,10 +295,11 @@ class Client:
             self.server.close_all()
 
 def main():
-    client = Client('minhquan', '192.168.43.244', 5000)
+    client = Client('minhquan', '192.168.1.9', 5000)
     client.connect()
-    time.sleep(2)
-    client.publish('fffffff', 'text.txt')
+    # time.sleep(2)
+    # client.fetch('file1.txt')
+    # client.publish('fffffff', 'text.txt')
     # while True:
     #     tmp = input('Choose opcode: ')
     #     if tmp == '1':

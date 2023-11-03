@@ -2,24 +2,26 @@ import socket
 from threading import Thread
 import re
 import json
+import os
 from message import Message, Type, Header
 
 
 class Server(object):
-    def __init__(self, server_ip, server_port):
+    def __init__(self, server_port):
         # The server's IP address and port number
-        self.server_ip = server_ip
         self.server_port = server_port
 
         # Create dictionary for TCP table
-        self.hostname_to_ip = {'minhquan': '192.168.1.9'}
-        self.ip_to_hostname = {'192.168.1.9': 'minhquan'}
-        self.hostname_file = {'minhquan': []}
-        self.ip_socket = {}
+        with open("hostname_to_ip.json", "r") as fp:
+            self.hostname_to_ip = json.load(fp)
+        with open("ip_to_hostname.json", "r") as fp:
+            self.ip_to_hostname = json.load(fp)
+        with open("hostname_file.json", "r") as fp:
+            self.hostname_file = json.load(fp)
 
         # Create a socket and bind it to the server's IP and port
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((self.server_ip, self.server_port))
+        self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
 
         # Create request queue
         self.request_queue = list()
@@ -39,57 +41,46 @@ class Server(object):
         self.server_socket.listen()
         while True:
             client_socket, addr = self.server_socket.accept()
-            self.ip_socket[addr[0]] = client_socket
             hostname = self.ip_to_hostname[addr[0]]
+            self.active_client[hostname] = client_socket
             client_thread = Thread(target=self.handle_client, args=(client_socket, hostname,))
             client_thread.start()
 
     def handle_client(self, client_socket, hostname):
-        try:
-            while True:
-                # Listen to message from client
-                print("Listening...")
-                message = client_socket.recv(1024).decode()
+        # Listen to message from client
+        message = client_socket.recv(1024).decode()
 
-                # Clients have terminated the connection
-                if not message:
-                    break
-
-                # print(message)
-
-                # Retrieve header and type
-                message = Message(None, None, None, message)
-                message_header = message.get_header()
-                message_type = message.get_type()
-
-                # Handle each kind of message
-                # REQUEST, TAKE_HOST_LIST
-                if message_header == Header.TAKE_HOST_LIST:
-                    self.take_host_list(client_socket, message)
-
-                # REQUEST, RETRIEVE_REQUEST
-                elif message_header == Header.RETRIEVE_REQUEST:
-                    self.retrieve_host(client_socket, message)
-
-                # REQUEST, PUBLISH
-                elif message_header == Header.PUBLISH:
-                    self.add(client_socket, hostname, message)
-                    print(self.hostname_file)
-
-                elif message_header == Header.END_CONNECTION:
-                    break
-                # End of Cao Minh Quan needs
-                # ----------------------------------------------------------------
-                # Add your message handling logic here
-        except Exception as e:
-            print(f"Error handling client: {e}")
-        finally:
+        # Clients have terminated the connection
+        if not message:
             client_socket.close()
+        # Clients have asked for request
+        else:
+            # Retrieve header and type
+            message = Message(None, None, None, message)
+            message_header = message.get_header()
+            message_type = message.get_type()
+
+            # Handle each kind of message
+            # REQUEST, TAKE_HOST_LIST
+            if message_header == Header.TAKE_HOST_LIST:
+                self.take_host_list(client_socket, message)
+
+            # REQUEST, RETRIEVE_REQUEST
+            elif message_header == Header.RETRIEVE_REQUEST:
+                self.retrieve_host(client_socket, message)
+
+            # REQUEST, PUBLISH
+            elif message_header == Header.PUBLISH:
+                self.publish(client_socket, hostname, message)
+                print(self.hostname_file)
+
+            elif message_header == Header.END_CONNECTION:
+                client_socket.close()
 
     def take_host_list(self, client_socket, message):
         fname = message.get_info()
         response_message = Message(Header.TAKE_HOST_LIST, Type.RESPONSE, self.find(fname))
-        self.response(client_socket, response_message)
+        self.send(client_socket, response_message)
 
     def retrieve_host(self, client_socket, message):
         hostip, fname = message.get_info()
@@ -100,14 +91,17 @@ class Server(object):
         print("OK")
         data = self.ip_socket[hostip].recv(2048)
         response_message = Message(Header.RETRIEVE_PROCEED, Type.RESPONSE, None)
-        self.response(client_socket, response_message)
+        self.send(client_socket, response_message)
 
-    def add(self, client_socket, hostname, message):
+    def publish(self, client_socket, hostname, message):
         fname_tuple = message.get_info()
         fname = list(fname_tuple.keys())[0]
-        self.hostname_file[hostname].append(fname)
-        response_message = Message(Header.PUBLISH, Type.RESPONSE, 'OK')
-        self.response(client_socket, response_message)
+        if fname not in self.hostname_file[hostname]:
+            self.hostname_file[hostname].append(fname)
+            response_message = Message(Header.PUBLISH, Type.RESPONSE, 'OK')
+        else:
+            response_message = Message(Header.PUBLISH, Type.RESPONSE, 'DUPLICATE')
+        self.send(client_socket, response_message)
 
     def register(self, hostname='abc', address='abc'):
         while True:
@@ -116,37 +110,21 @@ class Server(object):
                 # self.hostname_to_ip[hostname] = address
                 # self.hostname_file[hostname] = []
                 # print(self.hostname_to_ip)
-                self.response(message)
+                # self.send(message)
 
     def ping(self, hostname, timeout=1000):
-        client_ip = self.hostname_to_ip[hostname]
+        if hostname in list(self.hostname_to_ip.keys()):
+            client_ip = self.hostname_to_ip[hostname]
+        else:
+            pass
 
-        if client_ip is None:
-            print(f"No IP address found for hostname {hostname}")
-            return False
-
-        try:
-            # Set the socket timeout
-            self.client_socket.settimeout(timeout)
-
-            # Send a ping message
-            self.client_socket.send(b"PING")
-
-            # Wait for a response
-            response = self.client_socket.recv(1024)
-
-            # If we receive a response, the client is alive
-            if response == b'PONG':
-                print("Client is alive")
-        except socket.timeout:
-            # If we don't receive a response within a timeout, the client is not alive
-            print("Client is not alive")
-        finally:
-            # Reset the socket timeout
-            self.client_socket.settimeout(None)
-
-        self.flag = True
-        return
+        client_socket = self.active_client[hostname]
+        message = Message(Header.PING, Type.REQUEST, 'PING')
+        client_socket.settimeout(timeout)
+        self.send(client_socket, message)
+        # response = client_socket.recv(1024)
+        # if response == b'PONG':
+        #     print("Client is alive")
 
     def discover(self, hostname):
         """
@@ -182,7 +160,7 @@ class Server(object):
         return hosts_with_file
 
     @staticmethod
-    def response(client_socket, message: Message):
+    def send(client_socket, message: Message):
         """
         This function is used to reponse to the request of the clients
 
@@ -191,8 +169,11 @@ class Server(object):
 
         Returns:
         """
-        client_socket.send(json.dumps(message.get_packet()).encode())
+        try:
+            client_socket.send(json.dumps(message.get_packet()).encode())
+        except Exception as e:
+            print("Server response error: ", e)
 
 
-server = Server('192.168.1.9', 5000)
+server = Server(5000)
 server.listen()

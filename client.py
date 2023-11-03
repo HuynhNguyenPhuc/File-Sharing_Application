@@ -10,6 +10,7 @@ import shutil
 import json
 import time
 
+
 class Client:
     def __init__(self, client_hostname, server_host, server_port):
         """

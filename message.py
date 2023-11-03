@@ -18,6 +18,7 @@ class Header(Enum):
     LOG_IN = 7
     LOG_OUT = 8
     END_CONNECTION = 9
+    REGISTER = 10
 
 
 class Message:

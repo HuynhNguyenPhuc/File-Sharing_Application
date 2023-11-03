@@ -10,9 +10,8 @@ import shutil
 import json
 import time
 
-
 class Client:
-    def __init__(self, client_hostname, server_host, server_port):
+    def __init__(self, server_host, server_port):
         """
         Constructor: Initializes attributes, to be added more
         """
@@ -22,9 +21,16 @@ class Client:
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # Store information of the client
-        self.client_hostname = client_hostname
+        self.client_hostname = socket.gethostname()
         self.client_host = socket.gethostbyname(socket.gethostname())
-        self.published_files = {"file1.txt": "D:/Quan/testftp/test.txt", "file2.mp4": "D:/Quan/testftp/sample-30s.mp4", "file3.mp4": "D:/Quan/testftp/round_robin.mp4", "file4.xlsx": "D:/Quan/testftp/Book1.xlsx"}
+        self.client_port = 5001
+        self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.published_files = {}
+        if not os.path.exists("published_file.json"):
+            with open("published_file.json", "w") as fp:
+                pass
+        with open("published_file.json", "r") as fp:
+            self.published_files = json.load(fp)
         self.ftp_server = None # To be initialized only once per lifetime
         self.message_queue = [] # Synchronized message queue
         self.mutex_queue = Lock()
@@ -34,64 +40,97 @@ class Client:
     
     def connect(self):
         """
-        Connect to establish connection with server and join the P2P network
+        Establish connection with server and join the P2P network
         
         Return: None
         """
+        self.listen_socket.bind((self.client_host, self.client_port))
         try:
-            self.client_socket.connect((self.server_host, self.server_port))
-            print("Sucessfully Connected!")
+            # self.client_socket.connect((self.server_host, self.server_port))
+            print("Start running!")
         except Exception as e:
             print(f"An error occurred: {e}")
         # A thread for FTP server -> FTPServerSide class, to be added here instead of down there
-        # A thread for receiving messages and add to the queue
-        self.t.append(Thread(target=self.listen))
+        
         # A thread for processing ping requests
-        self.t.append(Thread(target=self.receive_ping_message))
+        # self.t.append(Thread(target=self.receive_ping_message))
         # A thread for preprocessing file transfers
-        self.t.append(Thread(target=self.preprocess_file_transfer))
+        # self.t.append(Thread(target=self.preprocess_file_transfer))
+        # A thread for listening incoming messages
+        self.t.append(Thread(target=self.listen))
         
         self.t[0].start()
-        self.t[1].start()
-        self.t[2].start()
-    
-    def disconnect(self):
-        """
-        Disconnect from the server and network
-        
-        Return: None
-        """
-        try:
-            self.stop_ftp_server()
-        except Exception as e:
-            print(f"Disconnect FTP server forbidden: {e}")
-        self.isRunning = False
-        message = Message(Header.END_CONNECTION, Type.REQUEST, None)
-        self.send_message_to_server(message)
-        time.sleep(1)
-        self.client_socket.close()
-        for thread in self.t:
-            thread.join()
-    
-    def send_message_to_server(self, message:Message):
-        """
-        Send encoded message to server
-        """
-        self.client_socket.send(json.dumps(message.get_packet()).encode())
+        # self.t[1].start()
+        # self.t[2].start()
+        # self.t[3].start()
     
     def listen(self):
+        print("Start listening")
+        self.listen_socket.listen()
+        while True:
+            try:
+                recv_socket, src_addr = self.listen_socket.accept()
+                new_thread = Thread(target=self.handle_incoming_connection, args=(recv_socket, src_addr))
+                new_thread.start()
+            except:
+                print("Stop accepting connection")
+                break
+    
+    def handle_incoming_connection(self, recv_socket, src_addr):
         try:
-            while self.isRunning:
-                message = self.client_socket.recv(2048).decode()
-                if not message:
-                    break
-                message = Message(None, None, None, message)
-                with self.mutex_queue:
-                    self.message_queue.append(message)
+            recv_socket.settimeout(10)
+            message = recv_socket.recv(2048).decode()
+            print("Received sth")
+            message = Message(None, None, None, message)
+            message_header = message.get_header()
+            message_info = message.get_info()
+            
+            if message_header == Header.PING and src_addr == self.server_host:
+                self.reply_ping_message(message, recv_socket)
+            elif message_header == Header.PUBLISH:
+                self.respond_publish(message)
+            # with self.mutex_queue:
+            #     self.message_queue.append(message)
         except Exception as e:
             print(f"An error occurred in listen: {e}")
         finally:
-            print("Thread listen finished successfully")
+            recv_socket.close()
+    
+    def disconnect(self):
+        """
+        Disconnect from the server and network and stop running
+        
+        Return: None
+        """
+        self.listen_socket.close()
+        # try:
+        #     self.stop_ftp_server()
+        # except Exception as e:
+        #     print(f"Disconnect FTP server forbidden: {e}")
+        # self.isRunning = False
+        # message = Message(Header.END_CONNECTION, Type.REQUEST, None)
+        # self.send_message(message, self.server_host, self.server_port)
+        # time.sleep(1)
+        # self.client_socket.close()
+        # for thread in self.t:
+        #     thread.join()
+    
+    def send_message(self, message:Message, dest_ip, dest_port=5000, existed_socket=None):
+        """
+        Send encoded message to server
+        """
+        encoded_msg = json.dumps(message.get_packet()).encode()
+        if existed_socket == None:
+            tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                tmp_sock.connect((dest_ip, dest_port))
+                tmp_sock.sendall(encoded_msg)
+            except:
+                print(f"An error occurred while sending a {message.get_header()} message to {dest_ip}")
+            finally:
+                tmp_sock.close()
+        else:
+            existed_socket.sendall(encoded_msg)
     
     def preprocess_file_transfer(self):
         try:
@@ -103,31 +142,30 @@ class Client:
                             fname = message.get_info()[1]
                             self.__check_cached__(fname)
                             response = Message(Header.RETRIEVE_PROCEED, Type.REQUEST, None)
-                            self.send_message_to_server(response)
+                            self.send_message(response, self.client_socket)
                 time.sleep(2)
         except Exception as e:
             print(f"An error occurred in preprocess: {e}")
         finally:
             print("Thread preprocess finished successfully")
     
-    def receive_ping_message(self):
+    def reply_ping_message(self, message, sock):
         """
         Receive ping message from the server
         """
-        try:
-            while self.isRunning:
-                with self.mutex_queue:
-                    for message in self.message_queue:
-                        if message.get_header() == Header.PING:
-                            self.message_queue.remove(message)
-                            print("Ping from server")
-                            response = Message(Header.PING, Type.REQUEST, "Success")
-                            self.send_message_to_server(response)
-                time.sleep(1)
-        except Exception as e:
-            print(f"An error occurred in receive ping: {e}")
-        finally:
-            print("Thread receive ping finished successfully")
+        print("Receive ping from server")
+        response = Message(Header.PING, Type.RESPONSE, 'PONG')
+        self.send_message(response, self.server_host, 5000, sock)
+        sock.close()
+    
+    def reply_discover_message(self, message, sock):
+        """
+        Receive discover message from the server
+        """
+        print("Receive discover from server")
+        response = Message(Header.PING, Type.RESPONSE, '')
+        self.send_message(response, self.server_host, 5000, sock)
+        sock.close()
     
     def initiate_ftp_server(self): # currently opcode 1, to be added in connect()/constructor
         """
@@ -178,6 +216,19 @@ class Client:
         
         ftp.quit()
     
+    def respond_publish(self, message):
+        info = message.get_info()
+        fname, lname, result = info['fname'], info['lname'], info['result']
+        if result != "ERROR":
+            # Add file to repository
+            self.published_files[fname] = lname
+            with open("published_file.json", "w") as fp:
+                json.dump(self.published_files, fp, indent=4)
+            print("Publish succeded!")
+        else:
+            print("Publish failed")
+        return result
+
     def publish(self, lname, fname):
         """
         A local file (which is stored in the client's file system at lname) is added to the client's repository as a file named fname and this information is conveyed to the server.
@@ -189,28 +240,8 @@ class Client:
         Return: None
         """
         # Send message to server
-        request = Message(Header.PUBLISH, Type.REQUEST, {fname: lname})
-        self.send_message_to_server(request)
-        try:
-            while True:
-                flag = False
-                with self.mutex_queue:
-                    for message in self.message_queue:
-                        if message.get_header() == Header.PUBLISH:
-                            self.message_queue.remove(message)
-                            if message.get_info() == "OK":
-                                # Add file to repository
-                                self.published_files[fname] = lname
-                                print("Publish succeded!")
-                            else:
-                                print("Publish failed")
-                            flag = True
-                            break
-                if flag:
-                    break
-                time.sleep(1)
-        except Exception as e:
-            print(f"An error occurred in receive ping: {e}")
+        request = Message(Header.PUBLISH, Type.REQUEST, {'fname': fname, 'lname': lname})
+        self.send_message(request, self.server_host, self.server_port)
     
     def fetch(self, fname):
         """
@@ -229,7 +260,7 @@ class Client:
         hostname, hostip = hosts_list[0]
         print(f"-----Request from host {hostname}-----")
         request = Message(Header.RETRIEVE_REQUEST, Type.REQUEST, [hostip, fname])
-        self.send_message_to_server(request)
+        self.send_message(request, self.client_socket)
         while True:
             flag = False
             with self.mutex_queue:
@@ -254,7 +285,7 @@ class Client:
         Returns: (List) A list of hosts possessing the file fname
         """
         request = Message(Header.TAKE_HOST_LIST, Type.REQUEST, fname)
-        self.send_message_to_server(request)
+        self.send_message(request, self.client_socket)
         hosts_list = None
         while True:
             flag = False
@@ -312,23 +343,25 @@ class Client:
             self.server.close_all()
 
 def main():
-    client = Client('minhquan', '192.168.1.5', 5000)
+    client = Client('192.168.57.244', 5000)
     client.connect()
+    # print(client.publish('D:/Quan/Đề tham khảo các môn chính trị/de-thi-lich-su-dang-hk211-truong-dai-hoc-bach-khoa-dhqg-hcm.pdf', 'de-thi-lsd.pdf'))
     # client.publish('fffffff', 'text.txt')
-    while True:
-        tmp = input('Choose opcode: ')
-        if tmp == '1':
-            client.initiate_ftp_server()
-        elif tmp == '2':
-            client.fetch('file3.mp4')
-        elif tmp == '3':
-            try:
-                client.stop_ftp_server()
-            except Exception as e:
-                print(f"Disconnect FTP server forbidden: {e}")
-        else:
-            print("Stop")
-            break
+    # while True:
+    #     tmp = input('Choose opcode: ')
+    #     if tmp == '1':
+    #         client.initiate_ftp_server()
+    #     elif tmp == '2':
+    #         client.fetch('file3.mp4')
+    #     elif tmp == '3':
+    #         try:
+    #             client.stop_ftp_server()
+    #         except Exception as e:
+    #             print(f"Disconnect FTP server forbidden: {e}")
+    #     else:
+    #         print("Stop")
+    #         break
+    time.sleep(10)
     client.disconnect()
 
 if __name__ == '__main__':

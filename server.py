@@ -1,3 +1,6 @@
+# Problem when changing the network, after changing the network, login must happen again
+# Write hostname_file and hostname_list
+
 import socket
 from threading import Thread
 import re
@@ -14,10 +17,8 @@ class Server(object):
         self.server_port = server_port
 
         # Create dictionary for TCP table
-        with open("hostname_to_ip.json", "r") as fp:
-            self.hostname_to_ip = json.load(fp)
-        with open("ip_to_hostname.json", "r") as fp:
-            self.ip_to_hostname = json.load(fp)
+        self.hostname_to_ip = {}
+        self.ip_to_hostname = {}
         with open("hostname_file.json", "r") as fp:
             self.hostname_file = json.load(fp)
         with open("hostname_list.json", "r") as fp:
@@ -27,18 +28,11 @@ class Server(object):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
 
-        # Create request queue
-        self.request_queue = list()
-
-        # Multi-thread lists for communication
-        self.register_queue = list()
-        self.publish_queue = list()
-
     def listen(self):
         self.server_socket.listen()
         while True:
             client_socket, addr = self.server_socket.accept()
-            if addr[0] not in list(self.hostname_list.keys()):
+            if addr[0] not in list(self.ip_to_hostname.keys()):
                 hostname = None
             else:
                 hostname = self.ip_to_hostname[addr[0]]
@@ -70,14 +64,15 @@ class Server(object):
 
                 # REQUEST, REGISTER
                 elif message_header == Header.REGISTER:
-                    self.register(client_socket, address, message)
+                    self.register(client_socket, message)
 
                 # REQUEST, FETCH
                 elif message_header == Header.FETCH:
                     self.fetch(client_socket, message)
 
+                # REQUEST, LOG_IN
                 elif message_header == Header.LOG_IN:
-                    self.login(client_socket, hostname, message)
+                    self.login(client_socket, address, message)
 
                 # REQUEST, END_CONNECTION
                 elif message_header == Header.END_CONNECTION:
@@ -103,8 +98,12 @@ class Server(object):
         self.send(client_socket, response_message)
 
     def ping(self, hostname):
-        if hostname in list(self.hostname_to_ip.keys()):
-            client_ip = self.hostname_to_ip[hostname]
+        if hostname in list(self.hostname_list.keys()):
+            if hostname in list(self.hostname_to_ip.keys()):
+                client_ip = self.hostname_to_ip[hostname]
+            else:
+                print(f"Client {hostname} not login yet")
+                return
         else:
             print(f"Client {hostname} not exist")
             return
@@ -142,7 +141,7 @@ class Server(object):
             except Exception as e:
                 print(f"Client {hostname} can not be discoverd. Status info: {e}")
 
-    def register(self, client_socket, address, message):
+    def register(self, client_socket, message):
         info = message.get_info()
         hostname = info['hostname']
         password = info['password']
@@ -150,16 +149,23 @@ class Server(object):
             payload = 'DUPLICATE'
         else:
             payload = 'OK'
-            self.hostname_to_ip[hostname] = address
-            self.ip_to_hostname[address] = hostname
             self.hostname_list[hostname] = password
+            self.hostname_file[hostname] = []
         response_message = Message(Header.REGISTER, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
 
-    def login(self, client_socket, cur_hostname, message):
+    def login(self, client_socket, address, message):
         info = message.get_info()
         hostname = info['hostname']
         password = info['password']
+        if hostname in list(self.hostname_to_ip.keys()):
+            prev_address = self.hostname_to_ip[hostname]
+            self.hostname_to_ip[hostname] = address
+            self.ip_to_hostname.pop(prev_address)
+            self.ip_to_hostname[address] = hostname
+        else:
+            self.hostname_to_ip[hostname] = address
+            self.ip_to_hostname[address] = hostname
         if hostname in list(self.hostname_list.keys()):
             if password == self.hostname_list[hostname]:
                 payload = 'PASSWORD'
@@ -186,7 +192,10 @@ class Server(object):
         return ip_with_file_list
 
     def check_active(self, hostname):
-        client_ip = self.hostname_to_ip[hostname]
+        if hostname in list(self.hostname_to_ip.keys()):
+            client_ip = self.hostname_to_ip[hostname]
+        else:
+            return False
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             try:
                 client_socket.settimeout(SERVER_TIMEOUT)

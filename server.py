@@ -13,7 +13,7 @@ SERVER_TIMEOUT = 2
 
 class Server(object):
     def __init__(self, server_port):
-        # The server's IP address and port number
+        # The server's port number
         self.server_port = server_port
 
         # Create dictionary for TCP table
@@ -29,6 +29,14 @@ class Server(object):
         self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
 
     def listen(self):
+        """
+        This method is used to listen upcoming connections from clients, then deliver each client to a thread
+        to handle requests
+
+        Parameters:
+
+        Return:
+        """
         self.server_socket.listen()
         while True:
             client_socket, addr = self.server_socket.accept()
@@ -40,6 +48,17 @@ class Server(object):
             client_thread.start()
 
     def handle_client(self, client_socket, hostname, address):
+        """
+        This method is used to handle requests for each client
+
+        Parameters:
+        - client_socket (socket): The connection between client and server itself
+        - hostname (str): Hostname of client
+        - address (str): IP address of client
+
+        Return:
+        - None
+        """
         print(f"Handling request for client {hostname} ... ")
         try:
             # Listen to message from client
@@ -84,6 +103,18 @@ class Server(object):
             print(f'Handling request for client {hostname} done')
 
     def publish(self, client_socket, hostname, message):
+        """
+        This method is used to reponse to the PUBLISH request. There are two types of response message which are OK
+        if the file does not exit in list and DUPLICATE otherwise
+
+        Parameters:
+        - client_socket (socket): The connection between client and server itself
+        - hostname (str): Hostname of client
+        - message (Message): Request message from client
+
+        Return:
+        - None
+        """
         info = message.get_info()
         fname = info['fname']
         lname = info['lname']
@@ -91,13 +122,23 @@ class Server(object):
         if fname not in self.hostname_file[hostname]:
             self.hostname_file[hostname].append(fname)
             payload['result'] = 'OK'
-            response_message = Message(Header.PUBLISH, Type.RESPONSE, payload)
+            with open("hostname_file.json", "w") as fp:
+                json.dump(self.hostname_file, fp, indent=4)
         else:
             payload['result'] = 'DUPLICATE'
-            response_message = Message(Header.PUBLISH, Type.RESPONSE, payload)
+        response_message = Message(Header.PUBLISH, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
 
     def ping(self, hostname):
+        """
+        This method is used to PING to one particular client identified by hostname
+
+        Parameters:
+        - hostname (str): Hostname of client
+
+        Return:
+        - None
+        """
         if hostname in list(self.hostname_list.keys()):
             if hostname in list(self.hostname_to_ip.keys()):
                 client_ip = self.hostname_to_ip[hostname]
@@ -115,13 +156,21 @@ class Server(object):
                 message = Message(Header.PING, Type.REQUEST, 'PING')
                 self.send(client_socket, message)
                 response_message = client_socket.recv(2048).decode()
-                response_message = Message(None, None, None, response_message)
                 if response_message:
                     print(f"Client {hostname} is alive")
             except Exception as e:
                 print(f"Client {hostname} is not alive. Status info: {e}")
 
     def discover(self, hostname):
+        """
+        This method is used to DISCOVER one particular client identified by hostname
+
+        Parameters:
+        - hostname (str): Hostname of client
+
+        Return:
+        - None
+        """
         if hostname in list(self.hostname_to_ip.keys()):
             client_ip = self.hostname_to_ip[hostname]
         else:
@@ -142,6 +191,17 @@ class Server(object):
                 print(f"Client {hostname} can not be discoverd. Status info: {e}")
 
     def register(self, client_socket, message):
+        """
+        This method is used to response to REGISTER request. There are two types of response message which are OK if
+        provided hostname is available and DUPLICATE otherwise
+
+        Parameters:
+        - client_socket (socket): Connection between client and server itself
+        - message (Message): Request message from client
+
+        Return:
+        - None
+        """
         info = message.get_info()
         hostname = info['hostname']
         password = info['password']
@@ -151,10 +211,27 @@ class Server(object):
             payload = 'OK'
             self.hostname_list[hostname] = password
             self.hostname_file[hostname] = []
+            with open("hostname_list.json", "w") as fp:
+                json.dump(self.hostname_list, fp, indent=4)
+            with open("hostname_file.json", "w") as fp:
+                json.dump(self.hostname_file, fp, indent=4)
         response_message = Message(Header.REGISTER, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
 
     def login(self, client_socket, address, message):
+        """
+        This method is used to response to LOG_IN request and modifying the mapping between hostname and IP address.
+        There are three types of response message which are OK if log in successfully, PASSWORD if incorrect password
+        and HOSTNAME if hostname does not exist
+
+        Parameters:
+        - client_socket (socket): Connection between client and server itself
+        - address (str): IP address of client
+        - message (Message): Request message from client
+
+        Return:
+        - None
+        """
         info = message.get_info()
         hostname = info['hostname']
         password = info['password']
@@ -177,6 +254,17 @@ class Server(object):
         self.send(client_socket, response_message)
 
     def fetch(self, client_socket, message):
+        """
+        This method is used to response to FETCH request. The response message to client will contain list of IP
+        addresses which are alive and have fetching requested file identified by fname
+
+        Parameters:
+        - client_socket (socket): Connection between client and server itself
+        - message (Message): Request message from client
+
+        Return:
+        - None
+        """
         fname = message.get_info()
         ip_with_file_list = self.search(fname)
         payload = {'fname': fname, 'avail_ips': ip_with_file_list}
@@ -184,6 +272,15 @@ class Server(object):
         self.send(client_socket, response_message)
 
     def search(self, fname):
+        """
+        This method is used to list out all the IP addresses which are alive and have file identified by fname
+
+        Parameters:
+        - fname (str): Requested file's name
+
+        Return:
+        - list: List of satisfying IP address
+        """
         ip_with_file_list = []
         for hostname, file_list in self.hostname_file.items():
             if fname in file_list:
@@ -192,6 +289,15 @@ class Server(object):
         return ip_with_file_list
 
     def check_active(self, hostname):
+        """
+        This method is used to check alive one particular client identified by hostname
+
+        Parameters:
+        - hostname (str): Hostname of client
+
+        Return:
+        - bool: True if the hostname is alive and False otherwise
+        """
         if hostname in list(self.hostname_to_ip.keys()):
             client_ip = self.hostname_to_ip[hostname]
         else:
@@ -210,12 +316,31 @@ class Server(object):
 
     @staticmethod
     def send(client_socket, message: Message):
+        """
+        This method is used to send message to one particular client through provided connection
+
+        Parameters:
+        - client_socket (socket): Connection between client and server itself
+        - message (Message): Request message from client
+
+        Return:
+        - None
+        """
         try:
             client_socket.send(json.dumps(message.get_packet()).encode())
         except Exception as e:
             print("Server message sending error: ", e)
 
     def run(self):
+        """
+        This method is used to run server's actions as PING and DISCOVER
+
+        Parameters:
+        - None
+
+        Return:
+        - None
+        """
         while True:
             opcode = int(input("Type your task here: "))
             if opcode == 1:
@@ -228,11 +353,21 @@ class Server(object):
                 pass
 
     def start(self):
+        """
+        This method to start server
+
+        Parameters:
+        - None
+
+        Return:
+        - None
+        """
         listen_thread = Thread(target=self.listen, args=())
         run_thread = Thread(target=self.run, args=())
         listen_thread.start()
         run_thread.start()
 
 
+# Randomly run
 server = Server(5000)
 server.run()

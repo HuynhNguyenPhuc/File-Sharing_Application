@@ -1,5 +1,5 @@
 import socket
-from threading import Thread, Lock
+from threading import Thread
 from ftplib import FTP, FTP_TLS
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
@@ -8,7 +8,6 @@ from message import Message, Type, Header
 import os
 import shutil
 import json
-import time
 
 class Client:
     def __init__(self, server_host, server_port, client_hostname, client_password):
@@ -18,7 +17,6 @@ class Client:
         # Store information of the centralized server
         self.server_host = server_host
         self.server_port = server_port
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # Store information of the client
         self.client_hostname = client_hostname
@@ -34,9 +32,6 @@ class Client:
         with open("published_file.json", "r") as fp:
             self.published_files = json.load(fp)
         self.ftp_server = None # To be initialized only once per lifetime
-        self.message_queue = [] # Synchronized message queue
-        self.mutex_queue = Lock()
-        self.isRunning = True
         self.isFTPRunning = False
         self.t: dict[str, Thread] = {}
     
@@ -52,8 +47,6 @@ class Client:
         
         # A thread for listening incoming messages
         self.t['listen_thread'] = Thread(target=self.listen)
-        # A thread for preprocessing file transfers
-        # self.t.append(Thread(target=self.preprocess_file_transfer))
         
         for thread in self.t.values():
             thread.start()
@@ -65,21 +58,39 @@ class Client:
         Return: None
         """
         print('Shut down')
+        if self.is_login():
+            self.log_out()
         self.listen_socket.close()
-        # try:
-        #     self.stop_ftp_server()
-        # except Exception as e:
-        #     print(f"Disconnect FTP server forbidden: {e}")
-        # self.isRunning = False
-        message = Message(Header.END_CONNECTION, Type.REQUEST, None)
-        self.send_message(message, self.server_host, self.server_port)
-        # time.sleep(1)
-        # self.client_socket.close()
+        try:
+            self.stop_ftp_server()
+        except Exception as e:
+            print(f"Disconnect FTP server forbidden: {e}")
         for thread in self.t.values():
             thread.join()
     
+    def initiate_ftp_server(self): # currently option 1 in testcase, to be added to connect()/constructor
+        """
+        Allocate and establish the server for FTP connection
+        
+        Return: None
+        """
+        if isinstance(self.ftp_server, self.FTPServerSide) and self.isFTPRunning:
+            return
+        self.ftp_server = self.FTPServerSide(self.client_host, self.__check_cached__)
+        self.ftp_server.start()
+        self.isFTPRunning = True
+    
+    def stop_ftp_server(self): # currently option 2 in testcase, to be added to disconnect()/destructor
+        if not isinstance(self.ftp_server, self.FTPServerSide):
+            raise Exception('Not an FTP server')
+        if isinstance(self.ftp_server, self.FTPServerSide) and not self.isFTPRunning:
+            return
+        self.ftp_server.stop()
+        self.ftp_server.join()
+        self.isFTPRunning = False
+    
     def listen(self):
-        print(f"Start listening at {self.client_host} port {self.client_port}")
+        print(f"Start listening at {self.client_host}:{self.client_port}")
         self.listen_socket.listen()
         while True:
             try:
@@ -103,46 +114,49 @@ class Client:
                 self.reply_ping_message(recv_socket)
             elif message_header == Header.DISCOVER and src_addr[0] == self.server_host:
                 self.reply_discover_message(recv_socket)
-            elif message_header == Header.FETCH:
-                self.contact_fetch(message)
+            elif message_header == Header.RETRIEVE:
+                self.__preprocess_file_transfer__(recv_socket, message.get_info())
             else:
                 print('Forbidden message')
-            # with self.mutex_queue:
-            #     self.message_queue.append(message)
         except Exception as e:
             print(f"An error occurred in listen: {e}")
         finally:
             recv_socket.close()
     
-    def send_message(self, message, dest_ip, dest_port=5000, existing_socket=None):
+    def send_message(self, message:Message, sock:socket.socket):
         """
-        Send an encoded message to a host or an existing socket
+        Send an encoded message to an existing socket
         Parameters:
-        - message: Message to send
-        - dest_ip: IP address to send to
-        - dest_port: Port to send to
-        - 
-        Return: True if message sent successfully, False otherwise
+        - message: Message to be sent
+        - sock: Socket to which the message is sent
+        
+        Return: True if the message sent successfully, False otherwise
         """
         encoded_msg = json.dumps(message.get_packet()).encode()
-        if existing_socket:
-            sock = existing_socket
-        else:
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect((dest_ip, dest_port))
-            except:
-                print(f"Failed to connect to {dest_ip}:{dest_port}")
-                return False
-        res = True
+        dest = 'server' if sock.getpeername()[0] == self.server_host else sock.getpeername()[0]
+        
         try:
             sock.sendall(encoded_msg)
+            print(f"Send a {message.get_header().name} - {message.get_type().name} message to {dest}")
+            res = True
         except:
-            print(f"An error occurred while sending a {message.get_header()} message to {sock.getpeername()}")
+            print(f"An error occurred while sending a {message.get_header().name} message to {dest}")
             res = False
-        if not existing_socket:
-            sock.close()
+        
         return res
+    
+    def notify_message(self, message:Message, src):
+        """
+        Send a notification to the screen about the received message
+        
+        Parameters:
+        - message: The message to see info
+        - src: The source IP address
+        
+        Returns: None
+        """
+        src = 'server' if src == self.server_host else src
+        print(f"Receive a {message.get_header().name}-{message.get_type().name} message from {src}")
     
     def register(self):
         """
@@ -159,9 +173,11 @@ class Client:
             tmp_sock.connect((self.server_host, self.server_port))
         except:
             print(f"Failed to connect to {self.server_host}:{self.server_port}")
-        self.send_message(request, None, None, tmp_sock)
+        self.send_message(request, tmp_sock)
         # Receive register response
         response = tmp_sock.recv(2048).decode()
+        tmp_sock.close()
+        # Process the response
         response = Message(None, None, None, response)
         self.notify_message(response, self.server_host)
         if response.get_header() != Header.REGISTER:
@@ -169,7 +185,6 @@ class Client:
             return False
         result = response.get_info()
         print(f"Register status: {result}")
-        tmp_sock.close()
         return True
     
     def log_in(self):
@@ -187,9 +202,11 @@ class Client:
             tmp_sock.connect((self.server_host, self.server_port))
         except:
             print(f"Failed to connect to {self.server_host}:{self.server_port}")
-        self.send_message(request, None, None, tmp_sock)
+        self.send_message(request, tmp_sock)
         # Receive login response
         response = tmp_sock.recv(2048).decode()
+        tmp_sock.close()
+        # Process the response
         response = Message(None, None, None, response)
         self.notify_message(response, self.server_host)
         if response.get_header() != Header.LOG_IN:
@@ -201,7 +218,6 @@ class Client:
         else:
             self.login_succeeded = False
         print(f"Login status: {result}")
-        tmp_sock.close()
         return self.login_succeeded
     
     def log_out(self):
@@ -221,9 +237,11 @@ class Client:
             tmp_sock.connect((self.server_host, self.server_port))
         except:
             print(f"Failed to connect to {self.server_host}:{self.server_port}")
-        self.send_message(request, None, None, tmp_sock)
+        self.send_message(request, tmp_sock)
         # Receive logout response
         response = tmp_sock.recv(2048).decode()
+        tmp_sock.close()
+        # Process the response
         response = Message(None, None, None, response)
         self.notify_message(response, self.server_host)
         if response.get_header() != Header.LOG_OUT:
@@ -233,26 +251,21 @@ class Client:
         if result == 'OK':
             self.login_succeeded = False
         print(f"Logout status: {result}")
-        tmp_sock.close()
         return True
-    
-    def reply_ping_message(self, sock):
-        """
-        Receive ping message from the server
-        """
-        print("Receive ping from server")
-        response = Message(Header.PING, Type.RESPONSE, 'PONG')
-        self.send_message(response, None, None, sock)
-        sock.close()
     
     def reply_discover_message(self, sock):
         """
         Receive discover message from the server
         """
-        print("Receive discover from server")
         response = Message(Header.DISCOVER, Type.RESPONSE, self.published_files)
-        self.send_message(response, None, None, sock)
-        sock.close()
+        self.send_message(response, sock)
+    
+    def reply_ping_message(self, sock):
+        """
+        Receive ping message from the server
+        """
+        response = Message(Header.PING, Type.RESPONSE, 'PONG')
+        self.send_message(response, sock)
     
     def publish(self, lname, fname):
         """
@@ -266,17 +279,18 @@ class Client:
         """
         # Send publish request
         request = Message(Header.PUBLISH, Type.REQUEST, {'fname': fname, 'lname': lname})
-        self.send_message(request, self.server_host, self.server_port)
         tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             tmp_sock.connect((self.server_host, self.server_port))
         except:
             print(f"Failed to connect to {self.server_host}:{self.server_port}")
-        self.send_message(request, None, None, tmp_sock)
+        self.send_message(request, tmp_sock)
         # Receive publish response
         response = tmp_sock.recv(2048).decode()
         response = Message(None, None, None, response)
         self.notify_message(response, self.server_host)
+        tmp_sock.close()
+        # Process the response
         info = response.get_info()
         if response.get_header() != Header.PUBLISH or fname != info['fname'] or lname != info['lname']:
             print('Forbidden message')
@@ -289,57 +303,94 @@ class Client:
         self.published_files[fname] = lname
         with open("published_file.json", "w") as fp:
             json.dump(self.published_files, fp, indent=4)
-        print("Publish succeded!")
+        print(f"Publish {result}")
         return True
     
-    def preprocess_file_transfer(self):
-        try:
-            while self.isRunning:
-                with self.mutex_queue:
-                    for message in self.message_queue:
-                        if message.get_header() == Header.RETRIEVE_REQUEST:
-                            self.message_queue.remove(message)
-                            fname = message.get_info()[1]
-                            self.__check_cached__(fname)
-                            response = Message(Header.RETRIEVE_PROCEED, Type.REQUEST, None)
-                            self.send_message(response, self.client_socket)
-                time.sleep(2)
-        except Exception as e:
-            print(f"An error occurred in preprocess: {e}")
-        finally:
-            print("Thread preprocess finished successfully")
-    
-    
-    def initiate_ftp_server(self): # currently opcode 1, to be added in connect()/constructor
+    def fetch(self, fname):
         """
-        Allocate and establish the server for FTP connection
+        Fetch some copy of the target file and add it to the local repository
+        
+        Parameters:
+        - fname: The file to be downloaded
         
         Return: None
         """
-        if isinstance(self.ftp_server, self.FTPServerSide) and self.isFTPRunning:
-            return
-        self.ftp_server = self.FTPServerSide(self.client_host, self.__check_cached__)
-        self.ftp_server.start()
-        self.isFTPRunning = True
+        ### First, request from the centralized server the list of online hosts having the given file fname
+        # Request server
+        request = Message(Header.FETCH, Type.REQUEST, fname)
+        tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            tmp_sock.connect((self.server_host, self.server_port))
+        except:
+            print(f"Failed to connect to {self.server_host}:{self.server_port}")
+        self.send_message(request, tmp_sock)
+        # Server's response
+        response = tmp_sock.recv(2048).decode()
+        tmp_sock.close()
+        # Process the response
+        response = Message(None, None, None, response)
+        self.notify_message(response, self.server_host)
+        info = response.get_info()
+        if response.get_header() != Header.FETCH or fname != info['fname']:
+            print('Forbidden message')
+            return False
+        host_list = info['avail_ips']
+        if not host_list:
+            print("No available host to fetch file")
+            return False
+        
+        ### Second, choose a host to download the file from and communicate with it to retrieve the file
+        final_dest = None
+        for host_ip in host_list:
+            # Ask that host to download the file
+            print(f"-----Initiate connection with host {host_ip}-----")
+            request = Message(Header.RETRIEVE, Type.REQUEST, fname)
+            tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tmp_sock.settimeout(2)
+            try:
+                tmp_sock.connect((host_ip, 5001))
+            except:
+                print(f"Failed to connect to {host_ip}:{self.client_port}")
+                continue
+            # If request cannot be sent, try other hosts
+            if not self.send_message(request, tmp_sock):
+                print(f"Failed to send request to {host_ip}")
+                tmp_sock.close()
+                continue
+            # Receive the response
+            response = tmp_sock.recv(2048).decode()
+            tmp_sock.close()
+            # Process the response
+            response = Message(None, None, None, response)
+            self.notify_message(response, host_ip)
+            if response.get_header() != Header.RETRIEVE:
+                print('Forbidden message')
+                continue
+            # Check if it accepts or refuses to send the file. If DENIED, try other hosts
+            result = response.get_info()
+            if result == 'DENIED':
+                print(f"Host {host_ip} refuses to send the file")
+                continue
+            elif result == 'OK':
+                final_dest = host_ip
+                break
+        if not final_dest:
+            return False
+        
+        ### Third, retrieve the file from the chosen host
+        filepath = self.retrieve(fname, final_dest)
+        ### Finally, add the file to local repository with publish
+        self.publish(filepath, fname)
     
-    def stop_ftp_server(self): # currently opcode 3, to be added in disconnect()/destructor
-        if not isinstance(self.ftp_server, self.FTPServerSide):
-            raise Exception('Not an FTP server')
-        if isinstance(self.ftp_server, self.FTPServerSide) and not self.isFTPRunning:
-            return
-        self.ftp_server.stop()
-        self.ftp_server.join()
-        self.isFTPRunning = False
-    
-    def retrieve(self, fname='file1.txt', host='localhost'):
+    def retrieve(self, fname, host):
         """
-        Establish an FTP connection to the host server
+        Establish an FTP connection to the host server and retrieve the file
         
         Parameters:
         - fname: the file name
         - host: client's IP address to connect
         
-        Return: None
+        Return: The file path in which the file was saved
         """
         dest_dir, dest_file = "download/", fname
         # Handle non-existing download directory
@@ -358,55 +409,19 @@ class Client:
             ftp.retrbinary(f'RETR {fname}', fp.write)
         
         ftp.quit()
+        return os.path.abspath(dest_dir + dest_file).replace('\\', '/')
     
-    def notify_message(self, message, src):
-        message_header = message.get_header()
-        message_type = message.get_type()
-        print(f"Received a {message_header.name}-{message_type.name} message from {'server' if src == self.server_host else src}")
+    def is_login(self):
+        return self.login_succeeded
     
-    
-    
-    def fetch(self, fname):
-        """
-        Fetch some copy of the target file and add it to the local repository
-        First, request from the centralized server the list of online hosts having the given file fname
-        
-        Parameters:
-        - fname: The file to be downloaded
-        
-        Return: None
-        """
-        request = Message(Header.FETCH, Type.REQUEST, fname)
-        self.send_message(request, self.server_host, self.server_port)
-        
-    def contact_fetch(self, message):
-        """
-        The second phase of the fetch command. After requesting the list of hosts, communicate with other client(s) to retrieve the file
-        """
-        info = message.get_info()
-        fname, host_list = info['fname'], info['avail_ips']
-        # Choose host to download file from
-        if not host_list:
-            print("No available host to fetch file")
-            return
-        final_dest = None
-        for host_ip in host_list:
-            print(f"-----Request from host {host_ip}-----")
-            request = Message(Header.RETRIEVE, Type.REQUEST, [host_ip, fname])
-            self.send_message(request, self.server_host, self.server_port)
-            # while True:
-            #     flag = False
-            #     with self.mutex_queue:
-            #         for message in self.message_queue:
-            #             if message.get_header() == Header.RETRIEVE_PROCEED:
-            #                 self.message_queue.remove(message)
-            #                 flag = True
-            #                 break
-            #     if flag:
-            #         break
-            #     time.sleep(1)
-        self.retrieve(fname, final_dest)
-        # Add file to local repository with publish
+    def __preprocess_file_transfer__(self, sock, fname):
+        if fname in self.published_files:
+            result = 'DENIED'
+        else:
+            self.__check_cached__(fname)
+            result = 'OK'
+        response = Message(Header.RETRIEVE, Type.RESPONSE, result)
+        self.send_message(response, sock)
     
     def __check_cached__(self, fname):
         """
@@ -425,9 +440,7 @@ class Client:
             if not os.path.exists(filepath):
                 shutil.copy2(self.published_files[fname], cached_dir + fname)
     
-    def is_login(self):
-        return self.login_succeeded
-    #  FTP server on another thread
+    # FTP server on another thread
     class FTPServerSide(Thread):
         def __init__(self, host_ip, check_cache):
             Thread.__init__(self)

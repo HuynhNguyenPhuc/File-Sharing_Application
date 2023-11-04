@@ -10,13 +10,10 @@ class Header(Enum):
     DISCOVER = 1
     PUBLISH = 2
     FETCH = 3
-    TAKE_HOST_LIST = 4
-    RETRIEVE_REQUEST = 5
-    RETRIEVE_PROCEED = 6
-    LOG_IN = 7
-    LOG_OUT = 8
-    END_CONNECTION = 9
-    REGISTER = 10
+    REGISTER = 4
+    LOG_IN = 5
+    LOG_OUT = 6
+    RETRIEVE = 7
 
 class Message:
     def __init__(self, header, type, info, json_string=None):

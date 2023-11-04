@@ -26,8 +26,7 @@ class Server(object):
             self.hostname_list = json.load(fp)
 
         # Create a socket and bind it to the server's IP and port
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
+        self.server_socket = None
 
         # Create output queue
         self.output_queue = Queue(maxsize=100)
@@ -434,6 +433,8 @@ class Server(object):
         Return:
         - None
         """
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
         listen_thread = Thread(target=self.listen, args=())
         listen_thread.start()
 
@@ -449,10 +450,6 @@ class Server(object):
         """
         self.server_socket.close()
 
-
-server = Server(5000)
-server.start()
-server.close()
 
 # Randomly run
 if __name__ == 'main':

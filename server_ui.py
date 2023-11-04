@@ -116,10 +116,11 @@ class Server_App(tk.Tk):
         Return:
         response (String): The result when execute the command
         """
+        _, hostname = command.split(' ')
         if re.search(PING_PATTERN, command):
-            output = self.server.run('PING', 'abc')
+            output = self.server.run('PING', hostname)
         else:
-            output = self.server.run('DISCOVER', 'abc')
+            output = self.server.run('DISCOVER', hostname)
         return output + '\n'
 
     # Trigger for excute command
@@ -199,6 +200,7 @@ class Server_App(tk.Tk):
         self.closing = True
         if self.thread1:
             self.thread1.join()
+        self.server.close()
         self.destroy()
 
 

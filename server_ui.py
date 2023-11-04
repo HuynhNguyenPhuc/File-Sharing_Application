@@ -1,22 +1,25 @@
 import tkinter as tk
 from tkinter import messagebox
 import re
+import pymysql
 
-SERVER_COMMAND = "List of server's commands\n* ping\n* discover\n############\n"
-CLIENT_COMMAND = "List of client's commands\n* publish\n* fetch\n############\n"
+from server import Server
 
-PUBLISH_PATTERN = ...
-FETCH_PATTERN = ...
-PING_PATTERN = ...
-DISCOVER_PATTERN = ...
+SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n\n"
 
-class App(tk.Tk):
+SERVER_USERNAME = 'admin'
+SERVER_PASSWORD = 'admin'
+
+PING_PATTERN = r"^ping\s[\w]+$"
+DISCOVER_PATTERN = r"^discover\s[\w]+$"
+
+class Server_App(tk.Tk):
     def __init__(self):
         super().__init__()
 
         # Some declarations
         self.username, self.password = None, None
-        self.server_side = False
+        self.server = None
 
         self.title("File Sharing Application")
         self.minsize(600, 400)
@@ -32,72 +35,24 @@ class App(tk.Tk):
         self.current_page_frame = frame()
         self.current_page_frame.pack()
 
-    def submit(self, username_entry, password_entry):
+    def check_login(self, username_entry, password_entry):
         username = username_entry.get()
         password = password_entry.get()
-
-        if self.username == "" or self.password == "":
-            messagebox.showerror("Lỗi đăng kí", "Vui lòng điền đầy đủ thông tin.")
-            return
-
-        # Send username and password to server step
-        ...
-
-        messagebox.showinfo("Đăng kí thành công", "Đăng kí thành công! Vui lòng đăng nhập để sử dụng dịch vụ.")
-
-        self.current_page_frame.pack_forget()
-        self.current_page_frame = self.sign_in()
-        self.current_page_frame.pack()
-
-    
-    def sign_up(self):
-        sign_up_frame = tk.Frame(borderwidth = 70)
-
-        sign_up_label = tk.Label(sign_up_frame, text="SIGN UP", font=("San Serif", 24, "bold"), borderwidth = 10)
-        sign_up_label.grid(row = 0, column = 0, columnspan = 10)
-
-        sign_up_username_label = tk.Label(sign_up_frame, text="Username", font=("San Serif", 12, "bold"))
-        sign_up_username_label.grid(row=1, column=0, sticky="we", padx = 10, pady=10)
-        sign_up_username_entry = tk.Entry(sign_up_frame, width = 50)
-        sign_up_username_entry.grid(row=1, column=1, columnspan = 9, sticky = "we", padx = 10, pady = 10)
-        sign_up_username_entry.bind('<Return>', lambda event: self.submit(sign_up_username_entry, sign_up_password_entry))
-
-        sign_up_password_label = tk.Label(sign_up_frame, text="Password", font=("San Serif", 12, "bold"))
-        sign_up_password_label.grid(row=2, column=0, sticky="we", padx = 10, pady=10)
-        sign_up_password_entry = tk.Entry(sign_up_frame, show="*", width = 50)
-        sign_up_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", padx = 10, pady = 10)
-        sign_up_password_entry.bind('<Return>', lambda event: self.submit(sign_up_username_entry, sign_up_password_entry))
-
-        sign_up_button = tk.Button(sign_up_frame, text="Sign Up", font=("San Serif", 12), command = lambda: self.submit(sign_up_username_entry, sign_up_password_entry))
-        sign_up_button.grid(row = 3, column = 1)
-        return_button = tk.Button(sign_up_frame, text = "Main Page", font=("San Serif", 12), command = lambda: self.trigger(self.main_page))
-        return_button.grid(row = 3, column = 6)
-
-        return sign_up_frame
-
-    def check_login(self, username_entry, password_entry):
-        self.username = username_entry.get()
-        self.password = password_entry.get()
         
-        if self.username == "" or self.password == "":
+        if username == "" or password == "":
             messagebox.showerror("Lỗi đăng nhập", "Vui lòng điền đầy đủ thông tin.")
             return
 
         # Checking database step
         ####### Fix later, used for testing ######
-        if self.username == "admin" and self.password == "admin":
-            messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + self.username + "!")
-        elif self.username == "phuchuynh" and self.password == "phuchuynh":
+        if username == SERVER_USERNAME and password == SERVER_PASSWORD:
+            self.username = username
+            self.password = password
             messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + self.username + "!")
         else:
             messagebox.showerror("Lỗi đăng nhập", "Sai tên đăng nhập hoặc mật khẩu.")
             return
         ###########################################
-
-        if self.username == 'admin' and self.password == 'admin':
-            self.server_side = True
-        else:
-            self.server_side = False
 
         self.current_page_frame.pack_forget()
         self.current_page_frame = self.terminal()
@@ -137,17 +92,15 @@ class App(tk.Tk):
         b1 = tk.Button(main_page_frame, text = "Sign In", font=("San Serif", 14) , command = lambda: self.trigger(self.sign_in))
         b1.grid(row = 1, column = 0, pady = 5)
 
-        
-        b2 = tk.Button(main_page_frame, text = "Sign Up", font=("San Serif", 14), command = lambda: self.trigger(self.sign_up))
-        b2.grid(row = 3, column = 0, pady = 5)
-
         return main_page_frame
 
     def command_processing(self, command):
         """
         Return True when the command is in the correct format
         """
-        return True
+        if re.search(PING_PATTERN, command) or re.search(DISCOVER_PATTERN, command):
+            return True
+        return False
 
     def get_response(self, command):
         """
@@ -156,7 +109,14 @@ class App(tk.Tk):
         Return:
         response (String): The result when execute the command
         """
-        return "Result"
+        if re.search(PING_PATTERN, command):
+            ### Handle ping command code ###
+            ...
+            return "Result for ping\n\n"
+        else:
+            ### Handle discover command code ####
+            ...
+            return "Result for discover\n\n"
 
     # Trigger for excute command
     def execute_command(self, input_field, output_field):
@@ -166,10 +126,8 @@ class App(tk.Tk):
         input_field.delete(0, tk.END)
 
         if not self.command_processing(command):
-            if self.server_side:
-                output_field.insert(tk.END, SERVER_COMMAND, "color")
-            else:
-                output_field.insert(tk.END, CLIENT_COMMAND, "color")
+            output_field.insert(tk.END, SERVER_COMMAND, "color")
+        
         else:
             result = self.get_response(command)
             output_field.insert(tk.END, result, "color")
@@ -193,13 +151,7 @@ class App(tk.Tk):
         
         terminal_output.config(state = tk.DISABLED)
 
-        index = 90 if self.server_side else 70
-        terminal_output.grid(row = 1, column = 0, columnspan = index)
-
-        if not self.server_side:
-            list_files = tk.Text(terminal_frame, background = "white", width = 25)
-            list_files.grid(row = 1, column = index, columnspan = 90 - index)
-            list_files.config(state = tk.DISABLED)
+        terminal_output.grid(row = 1, column = 0, columnspan = 90)
 
         input_header = tk.Label(terminal_frame, text = ">")
         input_header.grid(row = 2, column = 0, sticky="e")
@@ -213,5 +165,5 @@ class App(tk.Tk):
 
 
 if __name__ == "__main__":
-    app = App()
+    app = Server_App()
     app.mainloop()

@@ -1,13 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox
 import re
-import pymysql
 from threading import Thread, Lock
 import time
 
 from server import Server
 
-SERVER_COMMAND = "**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n\n"
+SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n\n"
 
 SERVER_USERNAME = 'admin'
 SERVER_PASSWORD = 'admin'
@@ -22,7 +21,7 @@ class Server_App(tk.Tk):
 
         # Some declarations
         self.username, self.password = None, None
-        self.server = Server(5000)
+        self.server = None
 
         self.title("File Sharing Application")
         self.minsize(600, 400)
@@ -36,10 +35,6 @@ class Server_App(tk.Tk):
         
         self.current_page_frame = self.main_page()
         self.current_page_frame.pack()
-
-        self.closing = False
-        self.thread1 = None
-        self.mutex = Lock()
 
     def trigger(self, frame):
         self.current_page_frame.pack_forget()
@@ -57,7 +52,6 @@ class Server_App(tk.Tk):
         if username == SERVER_USERNAME and password == SERVER_PASSWORD:
             self.username = username
             self.password = password
-            self.server.start()
             messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + self.username + "!")
         else:
             messagebox.showerror("Lỗi đăng nhập", "Sai tên đăng nhập hoặc mật khẩu.")
@@ -167,7 +161,6 @@ class Server_App(tk.Tk):
         output_field.config(state=tk.DISABLED)
     
     def terminal(self):
-        self.closing = False
         terminal_frame = tk.Frame()
 
         header = tk.Label(terminal_frame, text = f"Hello, {self.username}", 
@@ -195,16 +188,6 @@ class Server_App(tk.Tk):
         input_field = tk.Entry(terminal_frame)
         input_field.grid(row = 2, column = 1, columnspan = 199, sticky="we", pady = 5)
         input_field.bind('<Return>', lambda event: self.execute_command(input_field, terminal_output))
-
-        server_output = tk.Text(terminal_frame, width=50, height=30)
-        server_output.grid(row=1, column=2, columnspan=1, padx=5, pady=10)
-
-        output_clear = tk.Button(terminal_frame, text = "Clear",
-                                 command = lambda: self.clear_output(server_output), pady=5)
-        output_clear.grid(row=2, column=2)
-
-        self.thread1 = Thread(target=self.update_output, args=[server_output])
-        self.thread1.start()
         
         
 

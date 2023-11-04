@@ -2,10 +2,12 @@ import tkinter as tk
 from tkinter import messagebox
 import re
 import pymysql
+from threading import Thread, Lock
+import time
 
 from server import Server
 
-SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n\n"
+SERVER_COMMAND = "**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n\n"
 
 SERVER_USERNAME = 'admin'
 SERVER_PASSWORD = 'admin'
@@ -19,7 +21,8 @@ class Server_App(tk.Tk):
 
         # Some declarations
         self.username, self.password = None, None
-        self.server = None
+        self.server = Server(5000)
+        self.server.start()
 
         self.title("File Sharing Application")
         self.minsize(600, 400)
@@ -29,6 +32,10 @@ class Server_App(tk.Tk):
 
         self.current_page_frame = self.main_page()
         self.current_page_frame.pack()
+
+        self.closing = False
+        self.thread1 = None
+        self.mutex = Lock()
 
     def trigger(self, frame):
         self.current_page_frame.pack_forget()
@@ -110,13 +117,10 @@ class Server_App(tk.Tk):
         response (String): The result when execute the command
         """
         if re.search(PING_PATTERN, command):
-            ### Handle ping command code ###
-            ...
-            return "Result for ping\n\n"
+            output = self.server.run('PING', 'abc')
         else:
-            ### Handle discover command code ####
-            ...
-            return "Result for discover\n\n"
+            output = self.server.run('DISCOVER', 'abc')
+        return output + '\n'
 
     # Trigger for excute command
     def execute_command(self, input_field, output_field):
@@ -135,35 +139,66 @@ class Server_App(tk.Tk):
         output_field.config(state=tk.DISABLED)
     
     def terminal(self):
+        self.closing = False
         terminal_frame = tk.Frame()
 
-        header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 11, "bold"))
+        header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 16, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
         log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.trigger(self.main_page))
-        log_out_button.grid(row = 0, column = 89, padx = 5, pady = 5)
-        
+        log_out_button.grid(row = 0, column = 2, padx = 5, pady = 5, sticky='e')
 
-        terminal_output = tk.Text(terminal_frame, background = "black")
+        terminal_header = tk.Label(terminal_frame, text="Terminal",
+                                   font=("San Serif", 9, "italic"))
+        terminal_header.grid(row=1, column=0, sticky="n")
+
+        terminal_output = tk.Text(terminal_frame, background = "black", width=50, height=30)
         terminal_output.tag_configure("color", foreground="white")
-
         terminal_output.insert(tk.END, "Terminal [Version 1.0.0]\nCopyright (C) phuchuynh. All right reserved.\n\n", "color")
-        
         terminal_output.config(state = tk.DISABLED)
+        terminal_output.grid(row = 1, column = 1, columnspan = 1)
 
-        terminal_output.grid(row = 1, column = 0, columnspan = 90)
-
-        input_header = tk.Label(terminal_frame, text = ">")
-        input_header.grid(row = 2, column = 0, sticky="e")
+        input_header = tk.Label(terminal_frame, text = "Command", font=("San Serif", 9, "italic"))
+        input_header.grid(row = 2, column = 0, sticky="n")
 
         input_field = tk.Entry(terminal_frame)
-        input_field.grid(row = 2, column = 1, columnspan = 89, sticky="we", padx = 5, pady = 10)
-
+        input_field.grid(row = 2, column = 1, columnspan = 1, sticky="we")
         input_field.bind('<Return>', lambda event: self.execute_command(input_field, terminal_output))
+
+        server_output = tk.Text(terminal_frame, width=50, height=30)
+        server_output.grid(row=1, column=2, columnspan=1, padx=5, pady=10)
+
+        output_clear = tk.Button(terminal_frame, text = "Clear",
+                                 command = lambda: self.clear_output(server_output), pady=5)
+        output_clear.grid(row=2, column=2)
+
+        self.thread1 = Thread(target=self.update_output, args=[server_output])
+        self.thread1.start()
         
         return terminal_frame
+
+    def update_output(self, server_output):
+        while not self.closing:
+            time.sleep(0.5)
+            if self.closing:
+                break
+            self.server.queue_mutex.acquire()
+            if not self.server.output_queue.empty():
+                output = self.server.output_queue.get()
+                server_output.insert(tk.END, output)
+            self.server.queue_mutex.release()
+
+    def clear_output(self, server_output):
+        server_output.delete(0.1, tk.END)
+
+    def close(self):
+        self.closing = True
+        if self.thread1:
+            self.thread1.join()
+        self.destroy()
 
 
 if __name__ == "__main__":
     app = Server_App()
+    app.protocol("WM_DELETE_WINDOW", app.close)
     app.mainloop()

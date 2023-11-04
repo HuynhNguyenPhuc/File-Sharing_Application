@@ -1,11 +1,12 @@
 # Problem when changing the network, after changing the network, login must happen again
 # Write hostname_file and hostname_list
 
+# import re
+# import os
 import socket
-from threading import Thread
-import re
 import json
-import os
+import numpy
+from threading import Thread
 from message import Message, Type, Header
 
 SERVER_TIMEOUT = 2
@@ -73,7 +74,7 @@ class Server(object):
                 # Retrieve header and type
                 message = Message(None, None, None, message)
                 message_header = message.get_header()
-                message_type = message.get_type()
+                # message_type = message.get_type()
 
                 # Handle each kind of message
                 # REQUEST, PUBLISH
@@ -221,8 +222,8 @@ class Server(object):
     def login(self, client_socket, address, message):
         """
         This method is used to response to LOG_IN request and modifying the mapping between hostname and IP address.
-        There are three types of response message which are OK if log in successfully, PASSWORD if incorrect password
-        and HOSTNAME if hostname does not exist
+        There are three types of response message which are OK if log in successfully, PASSWORD if incorrect password,
+        HOSTNAME if hostname does not exist and AUTHENTIC if list published files list on server not match with on local
 
         Parameters:
         - client_socket (socket): Connection between client and server itself
@@ -235,19 +236,23 @@ class Server(object):
         info = message.get_info()
         hostname = info['hostname']
         password = info['password']
-        if hostname in list(self.hostname_to_ip.keys()):
-            prev_address = self.hostname_to_ip[hostname]
-            self.hostname_to_ip[hostname] = address
-            self.ip_to_hostname.pop(prev_address)
-            self.ip_to_hostname[address] = hostname
-        else:
-            self.hostname_to_ip[hostname] = address
-            self.ip_to_hostname[address] = hostname
         if hostname in list(self.hostname_list.keys()):
             if password == self.hostname_list[hostname]:
                 payload = 'PASSWORD'
             else:
                 payload = 'OK'
+                if hostname in list(self.hostname_to_ip.keys()):
+                    prev_address = self.hostname_to_ip[hostname]
+                    self.hostname_to_ip[hostname] = address
+                    self.ip_to_hostname.pop(prev_address)
+                    self.ip_to_hostname[address] = hostname
+                else:
+                    self.hostname_to_ip[hostname] = address
+                    self.ip_to_hostname[address] = hostname
+                if not self.check_authentic(hostname):
+                    self.hostname_to_ip.pop(hostname)
+                    self.ip_to_hostname.pop(address)
+                    payload = 'AUTHENTIC'
         else:
             payload = 'HOSTNAME'
         response_message = Message(Header.LOG_IN, Type.RESPONSE, payload)
@@ -314,6 +319,38 @@ class Server(object):
             except (Exception,):
                 return False
 
+    def check_authentic(self, hostname):
+        """
+        This is used to check whether published file list on server matches with one on local or not
+
+        Parameters:
+        - hostname (str): Hostname of client
+
+        Return:
+        - bool: True if it matches and False otherwise
+        """
+        if hostname in list(self.hostname_to_ip.keys()):
+            client_ip = self.hostname_to_ip[hostname]
+        else:
+            return False
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+            try:
+                client_socket.settimeout(SERVER_TIMEOUT)
+                client_socket.connect((client_ip, 5001))
+                message = Message(Header.DISCOVER, Type.REQUEST, 'DISCOVER')
+                self.send(client_socket, message)
+                response_message = client_socket.recv(2048).decode()
+                file_list = Message(None, None, None, response_message).get_info()
+                result = True
+                for server_file in list(file_list.keys()):
+                    if server_file not in self.hostname_file[hostname]:
+                        result = False
+                        break
+                return result
+            except (Exception,):
+                return False
+
     @staticmethod
     def send(client_socket, message: Message):
         """
@@ -370,4 +407,4 @@ class Server(object):
 
 # Randomly run
 server = Server(5000)
-server.run()
+server.start()

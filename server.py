@@ -26,8 +26,7 @@ class Server(object):
             self.hostname_list = json.load(fp)
 
         # Create a socket and bind it to the server's IP and port
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
+        self.server_socket = None
 
         # Create output queue
         self.output_queue = Queue(maxsize=100)
@@ -44,13 +43,16 @@ class Server(object):
         """
         self.server_socket.listen()
         while True:
-            client_socket, addr = self.server_socket.accept()
-            if addr[0] not in list(self.ip_to_hostname.keys()):
-                hostname = None
-            else:
-                hostname = self.ip_to_hostname[addr[0]]
-            client_thread = Thread(target=self.handle_client, args=(client_socket, hostname, addr[0]))
-            client_thread.start()
+            try:
+                client_socket, addr = self.server_socket.accept()
+                if addr[0] not in list(self.ip_to_hostname.keys()):
+                    hostname = None
+                else:
+                    hostname = self.ip_to_hostname[addr[0]]
+                client_thread = Thread(target=self.handle_client, args=(client_socket, hostname, addr[0]))
+                client_thread.start()
+            except (Exception,):
+                break
 
     def handle_client(self, client_socket, hostname, address):
         """
@@ -160,14 +162,14 @@ class Server(object):
         Return:
         - None
         """
-        client_info = f"\n--Client--: {hostname}\n"
+        client_info = f"--Client--: {hostname}\n"
         if hostname in list(self.hostname_list.keys()):
             if hostname in list(self.hostname_to_ip.keys()):
                 client_ip = self.hostname_to_ip[hostname]
             else:
-                return client_info + "--Status--: NOT LOGIN YET\n\n"
+                return client_info + "--Status--: NOT LOGIN YET\n"
         else:
-            return client_info + "--Status--: NOT REGISTER YET\n\n"
+            return client_info + "--Status--: NOT REGISTER YET\n"
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             try:
@@ -177,9 +179,9 @@ class Server(object):
                 self.send(client_socket, message)
                 response_message = client_socket.recv(2048).decode()
                 if response_message:
-                    return client_info + "--Status--: ALIVE\n\n"
+                    return client_info + "--Status--: ALIVE\n"
             except Exception as e:
-                return client_info + f"--Status--: NOT ALIVE - {e}\n\n"
+                return client_info + f"--Status--: NOT ALIVE - {e}\n"
 
     def discover(self, hostname):
         """
@@ -191,14 +193,14 @@ class Server(object):
         Return:
         - None
         """
-        client_info = f"\n--Client--: {hostname}\n"
+        client_info = f"--Client--: {hostname}\n"
         if hostname in list(self.hostname_list.keys()):
             if hostname in list(self.hostname_to_ip.keys()):
                 client_ip = self.hostname_to_ip[hostname]
             else:
-                return client_info + "--Status--: NOT LOGIN YET\n\n"
+                return client_info + "--Status--: NOT LOGIN YET\n"
         else:
-            return client_info + "--Status--: NOT REGISTER YET\n\n"
+            return client_info + "--Status--: NOT REGISTER YET\n"
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             try:
@@ -211,9 +213,9 @@ class Server(object):
                 status = '--Status--: SUCCESS\n--File list--:\n'
                 for file in list(file_list.keys()):
                     status += str(file) + '\n'
-                return client_info + status + '\n'
+                return client_info + status
             except Exception as e:
-                return client_info + f"--Status--: FAIL - {e}\n\n"
+                return client_info + f"--Status--: FAIL - {e}\n"
 
     def register(self, client_socket, message):
         """
@@ -307,7 +309,7 @@ class Server(object):
         fname = message.get_info()
         ip_with_file_list = self.search(fname)
         payload = {'fname': fname, 'avail_ips': ip_with_file_list}
-        response_message = Message(Header.TAKE_HOST_LIST, Type.RESPONSE, payload)
+        response_message = Message(Header.FETCH, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
         return 'OK'
 
@@ -414,6 +416,7 @@ class Server(object):
         Return:
         - str: Command output
         """
+        output = None
         if opcode == 'PING':
             output = self.ping(hostname)
         elif opcode == 'DISCOVER':
@@ -430,12 +433,26 @@ class Server(object):
         Return:
         - None
         """
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
         listen_thread = Thread(target=self.listen, args=())
         listen_thread.start()
+
+    def close(self):
+        """
+        This method is used to close server
+
+        Parameters:
+        - None
+
+        Return:
+        - None
+        """
+        self.server_socket.close()
 
 
 # Randomly run
 if __name__ == 'main':
     server = Server(5000)
-    server.listen()
-    server.run()
+    server.start()
+    server.close()

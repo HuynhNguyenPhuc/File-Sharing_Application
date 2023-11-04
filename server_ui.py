@@ -22,7 +22,6 @@ class Server_App(tk.Tk):
         # Some declarations
         self.username, self.password = None, None
         self.server = Server(5000)
-        self.server.start()
 
         self.title("File Sharing Application")
         self.minsize(600, 400)
@@ -55,6 +54,7 @@ class Server_App(tk.Tk):
         if username == SERVER_USERNAME and password == SERVER_PASSWORD:
             self.username = username
             self.password = password
+            self.server.start()
             messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + self.username + "!")
         else:
             messagebox.showerror("Lỗi đăng nhập", "Sai tên đăng nhập hoặc mật khẩu.")
@@ -116,10 +116,11 @@ class Server_App(tk.Tk):
         Return:
         response (String): The result when execute the command
         """
+        _, hostname = command.split(' ')
         if re.search(PING_PATTERN, command):
-            output = self.server.run('PING', 'abc')
+            output = self.server.run('PING', hostname)
         else:
-            output = self.server.run('DISCOVER', 'abc')
+            output = self.server.run('DISCOVER', hostname)
         return output + '\n'
 
     # Trigger for excute command
@@ -145,7 +146,7 @@ class Server_App(tk.Tk):
         header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 16, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
-        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.trigger(self.main_page))
+        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.logout())
         log_out_button.grid(row = 0, column = 2, padx = 5, pady = 5, sticky='e')
 
         terminal_header = tk.Label(terminal_frame, text="Terminal",
@@ -177,6 +178,10 @@ class Server_App(tk.Tk):
         
         return terminal_frame
 
+    def logout(self):
+        self.server.close()
+        self.trigger(self.main_page)
+
     def update_output(self, server_output):
         while not self.closing:
             time.sleep(0.5)
@@ -195,6 +200,7 @@ class Server_App(tk.Tk):
         self.closing = True
         if self.thread1:
             self.thread1.join()
+        self.server.close()
         self.destroy()
 
 

@@ -191,7 +191,7 @@ class Server(object):
         Return:
         - None
         """
-        client_info = f"--Client--: {hostname}"
+        client_info = f"--Client--: {hostname}\n"
         if hostname in list(self.hostname_list.keys()):
             if hostname in list(self.hostname_to_ip.keys()):
                 client_ip = self.hostname_to_ip[hostname]

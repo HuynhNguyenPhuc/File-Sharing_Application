@@ -112,12 +112,6 @@ class Server(object):
                     output += f"Client {hostname}: LOG_OUT\n"
                     status = self.logout(client_socket, hostname)
                     output += f"Status: {status}\n"
-
-                # REQUEST, END_CONNECTION
-                elif message_header == Header.END_CONNECTION:
-                    output += f"Client {hostname}: END_CONNECTION\n"
-                    client_socket.close()
-                    output += "Status: OK\n"
         except Exception as e:
             output += f"Server request handling error for client {hostname}. Status: {e}\n"
         finally:

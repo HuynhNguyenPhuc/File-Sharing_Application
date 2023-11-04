@@ -20,6 +20,8 @@ class Client_App(tk.Tk):
         self.username, self.password = None, None
         self.client = None
 
+        self.num_files = 0
+
         self.title("File Sharing Application")
         self.minsize(600, 400)
 
@@ -60,21 +62,21 @@ class Client_App(tk.Tk):
         sign_up_label = tk.Label(sign_up_frame, text="SIGN UP", font=("San Serif", 24, "bold"), borderwidth = 10)
         sign_up_label.grid(row = 0, column = 0, columnspan = 10)
 
-        sign_up_username_label = tk.Label(sign_up_frame, text="Username", font=("San Serif", 12, "bold"))
+        sign_up_username_label = tk.Label(sign_up_frame, text="Username", font=("San Serif", 13, "bold"))
         sign_up_username_label.grid(row=1, column=0, sticky="we", padx = 10, pady=10)
-        sign_up_username_entry = tk.Entry(sign_up_frame, width = 50)
-        sign_up_username_entry.grid(row=1, column=1, columnspan = 9, sticky = "we", padx = 10, pady = 10)
+        sign_up_username_entry = tk.Entry(sign_up_frame, width = 50, font=("San Serif", 13))
+        sign_up_username_entry.grid(row=1, column=1, columnspan = 9, sticky = "we", padx = 10, pady = 10, ipadx=2, ipady = 2)
         sign_up_username_entry.bind('<Return>', lambda event: self.submit(sign_up_username_entry, sign_up_password_entry))
 
-        sign_up_password_label = tk.Label(sign_up_frame, text="Password", font=("San Serif", 12, "bold"))
+        sign_up_password_label = tk.Label(sign_up_frame, text="Password", font=("San Serif", 13, "bold"))
         sign_up_password_label.grid(row=2, column=0, sticky="we", padx = 10, pady=10)
-        sign_up_password_entry = tk.Entry(sign_up_frame, show="*", width = 50)
-        sign_up_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", padx = 10, pady = 10)
+        sign_up_password_entry = tk.Entry(sign_up_frame, show="*", width = 50, font=("San Serif", 13))
+        sign_up_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", padx = 10, pady = 10, ipadx=2, ipady = 2)
         sign_up_password_entry.bind('<Return>', lambda event: self.submit(sign_up_username_entry, sign_up_password_entry))
 
-        sign_up_button = tk.Button(sign_up_frame, text="Sign Up", font=("San Serif", 12), command = lambda: self.submit(sign_up_username_entry, sign_up_password_entry))
+        sign_up_button = tk.Button(sign_up_frame, text="Sign Up", font=("San Serif", 13), command = lambda: self.submit(sign_up_username_entry, sign_up_password_entry))
         sign_up_button.grid(row = 3, column = 1)
-        return_button = tk.Button(sign_up_frame, text = "Main Page", font=("San Serif", 12), command = lambda: self.trigger(self.main_page))
+        return_button = tk.Button(sign_up_frame, text = "Main Page", font=("San Serif", 13), command = lambda: self.trigger(self.main_page))
         return_button.grid(row = 3, column = 6)
 
         return sign_up_frame
@@ -83,8 +85,6 @@ class Client_App(tk.Tk):
         username = username_entry.get()
         password = password_entry.get()
 
-        self.client = Client(SERVER_IP, 5000, username, password)
-        
         if username == "" or password == "":
             messagebox.showerror("Lỗi đăng nhập", "Vui lòng điền đầy đủ thông tin.")
             return
@@ -101,6 +101,7 @@ class Client_App(tk.Tk):
             self.current_page_frame.pack()
             return     
         ############################################
+        self.client = Client(SERVER_IP, 5000, username, password)
 
         if not self.client.is_login():
             del self.client
@@ -121,21 +122,21 @@ class Client_App(tk.Tk):
         sign_in_label = tk.Label(sign_in_frame, text="SIGN IN", font=("San Serif", 24, "bold"), borderwidth = 10)
         sign_in_label.grid(row = 0, column = 0, columnspan = 10)
 
-        sign_in_username_label = tk.Label(sign_in_frame, text="Username", font=("San Serif", 12, "bold"))
+        sign_in_username_label = tk.Label(sign_in_frame, text="Username", font=("San Serif", 13, "bold"))
         sign_in_username_label.grid(row=1, column=0, sticky="we", padx = 10, pady=10)
-        sign_in_username_entry = tk.Entry(sign_in_frame, width = 50)
-        sign_in_username_entry.grid(row=1, column=1, columnspan = 9, sticky = "we", padx = 10, pady = 10)
+        sign_in_username_entry = tk.Entry(sign_in_frame, width = 50, font=("San Serif", 13))
+        sign_in_username_entry.grid(row=1, column=1, columnspan = 9, sticky = "we", padx = 10, pady = 10, ipadx=2, ipady = 2)
         sign_in_username_entry.bind('<Return>', lambda event: self.check_login(sign_in_username_entry, sign_in_password_entry))
 
-        sign_in_password_label = tk.Label(sign_in_frame, text="Password", font=("San Serif", 12, "bold"))
+        sign_in_password_label = tk.Label(sign_in_frame, text="Password", font=("San Serif", 13, "bold"))
         sign_in_password_label.grid(row=2, column=0, sticky="we", padx = 10, pady=10)
-        sign_in_password_entry = tk.Entry(sign_in_frame, show="*", width = 50)
-        sign_in_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", padx = 10, pady = 10)
+        sign_in_password_entry = tk.Entry(sign_in_frame, show="*", width = 50, font=("San Serif", 13))
+        sign_in_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", padx = 10, pady = 10, ipadx=2, ipady = 2)
         sign_in_password_entry.bind('<Return>', lambda event: self.check_login(sign_in_username_entry, sign_in_password_entry))
 
-        sign_in_button = tk.Button(sign_in_frame, text="Sign In", font=("San Serif", 12), command = lambda: self.check_login(sign_in_username_entry, sign_in_password_entry))
+        sign_in_button = tk.Button(sign_in_frame, text="Sign In", font=("San Serif", 13), command = lambda: self.check_login(sign_in_username_entry, sign_in_password_entry))
         sign_in_button.grid(row = 3, column = 1)
-        return_button = tk.Button(sign_in_frame, text = "Main Page", font=("San Serif", 12), command = lambda: self.trigger(self.main_page))
+        return_button = tk.Button(sign_in_frame, text = "Main Page", font=("San Serif", 13), command = lambda: self.trigger(self.main_page))
         return_button.grid(row = 3, column = 6)
 
         return sign_in_frame
@@ -180,7 +181,7 @@ class Client_App(tk.Tk):
             return "Result\n\n"
 
     # Trigger for excute command
-    def execute_command(self, input_field, output_field):
+    def execute_command(self, input_field, output_field, list_files):
         command = input_field.get()
         output_field.config(state=tk.NORMAL)
         output_field.insert(tk.END, f"{self.username}$ " + command + "\n", "color")
@@ -191,8 +192,14 @@ class Client_App(tk.Tk):
         else:
             result = self.get_response(command)
             output_field.insert(tk.END, result, "color")
+            list_files.insert(tk.END, result)
 
         output_field.config(state=tk.DISABLED)
+
+    def add_files(self, fname, list_files):
+        list_files.config(state = tk.NORMAL)
+        list_files.insert(tk.END, f"{self.num_files}. {fname}\n")
+        list_files.config(state = tk.DISABLED)
 
     def auto_scroll(self, frame):
         frame.see('end')
@@ -218,6 +225,8 @@ class Client_App(tk.Tk):
 
         list_files = tk.Text(terminal_frame, background = "white", width = 25)
         list_files.grid(row = 1, column = 70, columnspan = 20)
+        list_files_header = "       My Repository      \n\n"
+        list_files.insert(tk.END, list_files_header)
         list_files.config(state = tk.DISABLED)
 
         input_header = tk.Label(terminal_frame, text = ">")
@@ -226,7 +235,7 @@ class Client_App(tk.Tk):
         input_field = tk.Entry(terminal_frame)
         input_field.grid(row = 2, column = 1, columnspan = 89, sticky="we", padx = 5, pady = 10)
 
-        input_field.bind('<Return>', lambda event: self.execute_command(input_field, terminal_output))
+        input_field.bind('<Return>', lambda event: self.execute_command(input_field, terminal_output, list_files))
         
         return terminal_frame
 

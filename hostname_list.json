@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
     "minhquan": "123456",
     "sajdojdsadioa": "123456",
     "sajdfmldfsjdmlfojdsadioa": "123456",
@@ -8,4 +9,20 @@
     "FUJVpubwGY": "123456",
     "gpfaeHlTih": "123456",
     "CuQqvWxrBT": "123456"
+=======
+    "minhquan": [
+        "file1.txt",
+        "file3.mp4",
+        "file4.xlsx",
+        "file5.pdf"
+    ],
+    "sajdojdsadioa": [],
+    "sajdfmldfsjdmlfojdsadioa": [],
+    "Qepcroftjb": [],
+    "HoqjODoPeY": [],
+    "JaPRBLrYHw": [],
+    "FUJVpubwGY": [],
+    "gpfaeHlTih": [],
+    "CuQqvWxrBT": []
+>>>>>>> e2bfa81803b046fef9dccb5aef0bce7d2ac89236
 }

@@ -11,6 +11,7 @@ SERVER_COMMAND = "**** Invalid syntax ****\nFormat of server's commands\n1. ping
 
 SERVER_USERNAME = 'admin'
 SERVER_PASSWORD = 'admin'
+SERVER_PORT = 5000
 
 PING_PATTERN = r"^ping\s[\w]+$"
 DISCOVER_PATTERN = r"^discover\s[\w]+$"
@@ -26,9 +27,13 @@ class Server_App(tk.Tk):
         self.title("File Sharing Application")
         self.minsize(600, 400)
 
+        self.closing = False
+        self.thread = None
+        self.mutex = Lock()
+
         # Used for manage the current page
         self.current_page_frame = None
-
+        
         self.current_page_frame = self.main_page()
         self.current_page_frame.pack()
 
@@ -49,8 +54,6 @@ class Server_App(tk.Tk):
             messagebox.showerror("Lỗi đăng nhập", "Vui lòng điền đầy đủ thông tin.")
             return
 
-        # Checking database step
-        ####### Fix later, used for testing ######
         if username == SERVER_USERNAME and password == SERVER_PASSWORD:
             self.username = username
             self.password = password
@@ -59,8 +62,10 @@ class Server_App(tk.Tk):
         else:
             messagebox.showerror("Lỗi đăng nhập", "Sai tên đăng nhập hoặc mật khẩu.")
             return
-        ###########################################
-
+        
+        self.server = Server(SERVER_PORT)
+        self.server.start()
+        
         self.current_page_frame.pack_forget()
         self.current_page_frame = self.terminal()
         self.current_page_frame.pack()
@@ -68,24 +73,34 @@ class Server_App(tk.Tk):
     def sign_in(self):
         sign_in_frame = tk.Frame(borderwidth = 70)
 
-        sign_in_label = tk.Label(sign_in_frame, text="SIGN IN", font=("San Serif", 24, "bold"), borderwidth = 10)
+        sign_in_label = tk.Label(sign_in_frame, text="SIGN IN", 
+                                 font=("San Serif", 24, "bold"), borderwidth = 10)
         sign_in_label.grid(row = 0, column = 0, columnspan = 10)
 
-        sign_in_username_label = tk.Label(sign_in_frame, text="Username", font=("San Serif", 12, "bold"))
+        sign_in_username_label = tk.Label(sign_in_frame, text="Username", 
+                                          font=("San Serif", 13, "bold"))
         sign_in_username_label.grid(row=1, column=0, sticky="we", padx = 10, pady=10)
-        sign_in_username_entry = tk.Entry(sign_in_frame, width = 50)
-        sign_in_username_entry.grid(row=1, column=1, columnspan = 9, sticky = "we", padx = 10, pady = 10)
-        sign_in_username_entry.bind('<Return>', lambda event: self.check_login(sign_in_username_entry, sign_in_password_entry))
+        sign_in_username_entry = tk.Entry(sign_in_frame, width = 50, font=("San Serif", 13))
+        sign_in_username_entry.grid(row=1, column=1, columnspan = 9, sticky = "we", 
+                                    padx = 10, pady = 10, ipadx=2, ipady = 2)
+        sign_in_username_entry.bind('<Return>', 
+        lambda event: self.check_login(sign_in_username_entry, sign_in_password_entry))
 
-        sign_in_password_label = tk.Label(sign_in_frame, text="Password", font=("San Serif", 12, "bold"))
+        sign_in_password_label = tk.Label(sign_in_frame, text="Password", 
+                                          font=("San Serif", 13, "bold"))
         sign_in_password_label.grid(row=2, column=0, sticky="we", padx = 10, pady=10)
-        sign_in_password_entry = tk.Entry(sign_in_frame, show="*", width = 50)
-        sign_in_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", padx = 10, pady = 10)
-        sign_in_password_entry.bind('<Return>', lambda event: self.check_login(sign_in_username_entry, sign_in_password_entry))
+        sign_in_password_entry = tk.Entry(sign_in_frame, show="*", width = 50, 
+                                          font=("San Serif", 13))
+        sign_in_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", 
+                                    padx = 10, pady = 10, ipadx=2, ipady = 2)
+        sign_in_password_entry.bind('<Return>', 
+        lambda event: self.check_login(sign_in_username_entry, sign_in_password_entry))
 
-        sign_in_button = tk.Button(sign_in_frame, text="Sign In", font=("San Serif", 12), command = lambda: self.check_login(sign_in_username_entry, sign_in_password_entry))
+        sign_in_button = tk.Button(sign_in_frame, text="Sign In", font=("San Serif", 13), 
+                                   command = lambda: self.check_login(sign_in_username_entry, sign_in_password_entry))
         sign_in_button.grid(row = 3, column = 1)
-        return_button = tk.Button(sign_in_frame, text = "Main Page", font=("San Serif", 12), command = lambda: self.trigger(self.main_page))
+        return_button = tk.Button(sign_in_frame, text = "Main Page", font=("San Serif", 13), 
+                                  command = lambda: self.trigger(self.main_page))
         return_button.grid(row = 3, column = 6)
 
         return sign_in_frame
@@ -93,10 +108,12 @@ class Server_App(tk.Tk):
     def main_page(self):
         main_page_frame = tk.Frame(borderwidth = 50)
 
-        main_page_label = tk.Label(main_page_frame, text="FILE SHARING APPLICATION", font=("San Serif", 30, "bold"), borderwidth = 50)
+        main_page_label = tk.Label(main_page_frame, text="FILE SHARING APPLICATION", 
+                                   font=("San Serif", 30, "bold"), borderwidth = 50)
         main_page_label.grid(row = 0, column = 0)
 
-        b1 = tk.Button(main_page_frame, text = "Sign In", font=("San Serif", 14) , command = lambda: self.trigger(self.sign_in))
+        b1 = tk.Button(main_page_frame, text = "Sign In", font=("San Serif", 14), 
+                       command = lambda: self.trigger(self.sign_in))
         b1.grid(row = 1, column = 0, pady = 5)
 
         return main_page_frame
@@ -116,12 +133,22 @@ class Server_App(tk.Tk):
         Return:
         response (String): The result when execute the command
         """
-        _, hostname = command.split(' ')
-        if re.search(PING_PATTERN, command):
-            output = self.server.run('PING', hostname)
-        else:
-            output = self.server.run('DISCOVER', hostname)
-        return output + '\n'
+        opcode, hostname = command.split(" ")
+        return self.server.run(opcode.upper(), hostname)
+    
+    def update_output(self, server_output):
+        while not self.closing:
+            time.sleep(0.5)
+            if self.closing:
+                break
+            self.server.queue_mutex.acquire()
+            if not self.server.output_queue.empty():
+                output = self.server.output_queue.get()
+                server_output.insert(tk.END, output)
+            self.server.queue_mutex.release()
+
+    def clear_output(self, server_output):
+        server_output.delete(0, tk.END)
 
     # Trigger for excute command
     def execute_command(self, input_field, output_field):
@@ -143,27 +170,30 @@ class Server_App(tk.Tk):
         self.closing = False
         terminal_frame = tk.Frame()
 
-        header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 16, "bold"))
+        header = tk.Label(terminal_frame, text = f"Hello, {self.username}", 
+                          font=("San Serif", 11, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
-        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.logout())
-        log_out_button.grid(row = 0, column = 2, padx = 5, pady = 5, sticky='e')
-
-        terminal_header = tk.Label(terminal_frame, text="Terminal",
-                                   font=("San Serif", 9, "italic"))
-        terminal_header.grid(row=1, column=0, sticky="n")
-
-        terminal_output = tk.Text(terminal_frame, background = "black", width=50, height=30)
+        log_out_button = tk.Button(terminal_frame, text = "Log Out", 
+                                   command = lambda: self.trigger(self.main_page))
+        log_out_button.grid(row = 0, column = 209, pady = 5)
+        
+        terminal_output = tk.Text(terminal_frame, background = "black")
         terminal_output.tag_configure("color", foreground="white")
-        terminal_output.insert(tk.END, "Terminal [Version 1.0.0]\nCopyright (C) phuchuynh. All right reserved.\n\n", "color")
+        terminal_output.insert(tk.END, 
+        "Terminal [Version 1.0.0]\nCopyright (C) phuchuynh. All right reserved.\n\n", "color")     
         terminal_output.config(state = tk.DISABLED)
-        terminal_output.grid(row = 1, column = 1, columnspan = 1)
+        terminal_output.grid(row = 1, column = 0, columnspan = 200, padx = 5, pady = 5)
 
-        input_header = tk.Label(terminal_frame, text = "Command", font=("San Serif", 9, "italic"))
-        input_header.grid(row = 2, column = 0, sticky="n")
+        server_output = tk.Text(terminal_frame, width=40)
+        server_output.grid(row=1, column = 200, columnspan = 10, padx = 5, pady = 5)
+        server_output.config(state = tk.DISABLED)
+
+        input_header = tk.Label(terminal_frame, text = ">>>")
+        input_header.grid(row = 2, column = 0, sticky="e")
 
         input_field = tk.Entry(terminal_frame)
-        input_field.grid(row = 2, column = 1, columnspan = 1, sticky="we")
+        input_field.grid(row = 2, column = 1, columnspan = 199, sticky="we", pady = 5)
         input_field.bind('<Return>', lambda event: self.execute_command(input_field, terminal_output))
 
         server_output = tk.Text(terminal_frame, width=50, height=30)
@@ -176,31 +206,22 @@ class Server_App(tk.Tk):
         self.thread1 = Thread(target=self.update_output, args=[server_output])
         self.thread1.start()
         
+        
+
+        output_clear = tk.Button(terminal_frame, text = "Clear",
+                                 command = lambda: self.clear_output(server_output), pady=5)
+        output_clear.grid(row = 2, column= 206, pady = 5)
+
+        self.thread = Thread(target=self.update_output, args=[server_output])
+        self.thread.start()
+        
         return terminal_frame
 
-    def logout(self):
-        self.server.close()
-        self.trigger(self.main_page)
-
-    def update_output(self, server_output):
-        while not self.closing:
-            time.sleep(0.5)
-            if self.closing:
-                break
-            self.server.queue_mutex.acquire()
-            if not self.server.output_queue.empty():
-                output = self.server.output_queue.get()
-                server_output.insert(tk.END, output)
-            self.server.queue_mutex.release()
-
-    def clear_output(self, server_output):
-        server_output.delete(0.1, tk.END)
-
+    
     def close(self):
         self.closing = True
-        if self.thread1:
-            self.thread1.join()
-        self.server.close()
+        if self.thread:
+            self.thread.join()
         self.destroy()
 
 

@@ -92,6 +92,7 @@ class Server(object):
 
                 # REQUEST, LOG_IN
                 elif message_header == Header.LOG_IN:
+                    print('Login ...')
                     self.login(client_socket, address, message)
 
                 # REQUEST, END_CONNECTION
@@ -256,6 +257,8 @@ class Server(object):
         else:
             payload = 'HOSTNAME'
         response_message = Message(Header.LOG_IN, Type.RESPONSE, payload)
+        print('Login sending ...')
+        print(address)
         self.send(client_socket, response_message)
 
     def fetch(self, client_socket, message):
@@ -365,6 +368,7 @@ class Server(object):
         """
         try:
             client_socket.send(json.dumps(message.get_packet()).encode())
+            print("Sending done ...")
         except Exception as e:
             print("Server message sending error: ", e)
 
@@ -407,4 +411,4 @@ class Server(object):
 
 # Randomly run
 server = Server(5000)
-server.start()
+server.listen()

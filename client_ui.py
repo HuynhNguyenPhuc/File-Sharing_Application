@@ -19,6 +19,7 @@ class Client_App(tk.Tk):
         # Some declarations
         self.username, self.password = None, None
         self.client = None
+        self.client_on = None
 
         self.mode = False
         self.list_of_ips = None
@@ -115,6 +116,7 @@ class Client_App(tk.Tk):
         else:
             self.username = username
             self.password = password
+            self.cliend_on = True
 
             messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + username + "!")
 
@@ -250,6 +252,7 @@ class Client_App(tk.Tk):
     def log_out(self):
         self.client.log_out()
         self.client.disconnect()
+        self.cliend_on = False
         self.trigger(self.main_page)
 
     
@@ -284,8 +287,14 @@ class Client_App(tk.Tk):
         input_field.bind('<Return>', lambda event: self.execute_command(input_field, terminal_output, list_files))
         
         return terminal_frame
+    
+    def close(self):
+        if self.client_on:
+            self.client.log_out()
+            self.client.disconnect()
 
 
 if __name__ == "__main__":
     app = Client_App()
+    app.protocol("WM_DELETE_WINDOW", app.close)
     app.mainloop()

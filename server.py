@@ -208,9 +208,10 @@ class Server(object):
                 self.send(client_socket, message)
                 response_message = client_socket.recv(2048).decode()
                 end_time = time.time()
+                round_trip_time = "{:,.8f}".format(end_time - start_time)
                 file_list = Message(None, None, None, response_message).get_info()
                 status = "--Status--: SUCCESS\n"
-                status += f"--Round-Trip Time: {str(end_time - start_time)} (s)\n"
+                status += f"--Round-Trip Time: {round_trip_time} (s)\n"
                 status += "--File list--:\n"
                 for file in list(file_list.keys()):
                     status += str(file) + '\n'
@@ -475,6 +476,8 @@ class Server(object):
         - None
         """
         self.server_socket.close()
+        self.ip_to_hostname = {}
+        self.hostname_to_ip = {}
 
 
 # Randomly run

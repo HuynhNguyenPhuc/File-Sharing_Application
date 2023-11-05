@@ -115,6 +115,9 @@ class Client_App(tk.Tk):
         return sign_up_frame
 
     def check_login(self, username_entry, password_entry):
+        """
+        Used for authenti
+        """
         username = username_entry.get()
         password = password_entry.get()
 
@@ -231,6 +234,7 @@ class Client_App(tk.Tk):
         Used
         """
         command = input_field.get()
+        input_field.delete(0, tk.END)
         output_field.config(state=tk.NORMAL)
         if self.mode:
             if not re.search(r"^[1-9]+[0-9]*$", command):
@@ -248,10 +252,10 @@ class Client_App(tk.Tk):
                 else:
                     self.add_files(self.fname, list_files)
                     output_field.insert(tk.END, f"\nĐã nhận file thành công.\n\n", "color")   
-                    self.mode = False
+                
+            self.mode = False
         else:
             output_field.insert(tk.END, f"{self.username}$ " + command + "\n", "color")
-            input_field.delete(0, tk.END)
 
             if not self.command_processing(command):
                 output_field.insert(tk.END, CLIENT_COMMAND, "color")

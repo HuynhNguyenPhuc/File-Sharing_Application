@@ -475,7 +475,8 @@ class Server(object):
         Return:
         - None
         """
-        self.server_socket.close()
+        if self.server_socket:
+            self.server_socket.close()
         self.ip_to_hostname = {}
         self.hostname_to_ip = {}
 

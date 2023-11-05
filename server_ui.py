@@ -7,13 +7,15 @@ import time
 
 from server import Server
 
-SERVER_COMMAND = "**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n\n"
+SERVER_COMMAND = "**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n" \
+                 "3. clear\n\n"
 
 SERVER_USERNAME = 'admin'
 SERVER_PASSWORD = 'admin'
 
 PING_PATTERN = r"^ping\s[\w]+$"
 DISCOVER_PATTERN = r"^discover\s[\w]+$"
+CLEAR_PATTERN = r"^clear$"
 
 class Server_App(tk.Tk):
     def __init__(self):
@@ -105,7 +107,8 @@ class Server_App(tk.Tk):
         """
         Return True when the command is in the correct format
         """
-        if re.search(PING_PATTERN, command) or re.search(DISCOVER_PATTERN, command):
+        if re.search(PING_PATTERN, command) or re.search(DISCOVER_PATTERN, command) \
+           or re.search(CLEAR_PATTERN, command):
             return True
         return False
 
@@ -116,11 +119,16 @@ class Server_App(tk.Tk):
         Return:
         response (String): The result when execute the command
         """
-        _, hostname = command.split(' ')
+        hostname = None
+        if not re.search(CLEAR_PATTERN, command):
+            _, hostname = command.split(' ')
+
         if re.search(PING_PATTERN, command):
             output = self.server.run('PING', hostname)
-        else:
+        elif re.search(DISCOVER_PATTERN, command):
             output = self.server.run('DISCOVER', hostname)
+        else:
+            output = 'CLEAR'
         return output + '\n'
 
     # Trigger for excute command
@@ -137,8 +145,13 @@ class Server_App(tk.Tk):
         
         else:
             result = self.get_response(command)
-            output_field.insert(tk.END, result, "color")
-            output_field.see(tk.END)
+            if result == 'CLEAR\n':
+                output_field.delete(0.1, tk.END)
+                output_field.insert(tk.END, "Terminal [Version 1.0.0]\nCopyright (C) phuchuynh. All right reserved.\n\n"
+                                    , "color")
+            else:
+                output_field.insert(tk.END, result, "color")
+                output_field.see(tk.END)
 
         output_field.config(state=tk.DISABLED)
     

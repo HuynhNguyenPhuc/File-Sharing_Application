@@ -9,8 +9,8 @@ CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. pu
 
 SERVER_IP = '192.168.43.244' 
 
-PUBLISH_PATTERN = r"^publish\s[A-Z]:(\\(\w)+)*(\\\w+.[A-Za-z]+)\s\w+.[A-Za-z]+$"
-FETCH_PATTERN = r"^fetch\s(\w+.[A-Za-z]+)$"
+PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:\/(?:[\sa-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễếệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+\/)*[\sa-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễếệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+\.[A-Za-z]+\s[\sa-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễếệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+\.[A-Za-z]+$"
+FETCH_PATTERN = r"^fetch\s[\sa-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễếệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+\.[A-Za-z]+$"
 
 class Client_App(tk.Tk):
     def __init__(self):
@@ -116,7 +116,12 @@ class Client_App(tk.Tk):
 
     def check_login(self, username_entry, password_entry):
         """
-        Used for authenti
+        Used for authentication
+
+        Parameters:
+        + usename_entry (tk.Entry):
+        + password_entry (tk.Entry):
+
         """
         username = username_entry.get()
         password = password_entry.get()
@@ -242,7 +247,7 @@ class Client_App(tk.Tk):
             elif int(command) > len(self.list_of_ips):
                 output_field.insert(tk.END, f"\nVui lòng chọn số trong khoảng từ 1 đến {len(self.list_of_ips)}\n\n", "color")
             else:
-                output_field.insert(tk.END, f"\nNgười dùng chọn {command}.\n\n", "color")
+                output_field.insert(tk.END, f"\nNgười dùng chọn peer số {command}\n", "color")
                 ip = self.list_of_ips[int(command)-1]
                 message = self.client.retrieve(self.fname, ip)
                 if message == 'DENIED':
@@ -268,7 +273,7 @@ class Client_App(tk.Tk):
                         output_field.insert(tk.END, f"\nUpload file thành công!\n\n", "color")
                         self.add_files(result, list_files)
                 else:
-                    if result == "Không có peer nào đang sẵn sàng.":
+                    if result == "Không có peer nào có file hoặc đang sẵn sàng.":
                         output_field.insert(tk.END, f"\n{result}\n\n", "color")
                     else:
                         output_field.insert(tk.END, f"\nDanh sách các peer:\n", "color")

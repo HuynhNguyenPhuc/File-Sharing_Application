@@ -1,17 +1,16 @@
 import tkinter as tk
 from tkinter import messagebox
 import re
-import pymysql
 
 from client import Client
 
-CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n\n"
+CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n3. clear\n\n"
 
-SERVER_IP = '192.168.43.244' 
+SERVER_IP = '192.168.57.244' 
 
-PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:\/(?:[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\/)*[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z]+\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z]+$"
-FETCH_PATTERN = r"^fetch\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z]+$"
-
+PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:[\/\\](?:[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*[\/\\])*[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z]+\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+$"
+FETCH_PATTERN = r"^fetch\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z0-9]+$"
+CLEAR_PATTERN = r"^clear$"
 class Client_App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -200,7 +199,8 @@ class Client_App(tk.Tk):
         """
         Return True when the command is in the correct format
         """
-        if re.search(FETCH_PATTERN, command) or re.search(PUBLISH_PATTERN, command):
+        if re.search(FETCH_PATTERN, command) or re.search(PUBLISH_PATTERN, command) \
+            or re.search(CLEAR_PATTERN, command):
             return True
         return False
 
@@ -212,6 +212,8 @@ class Client_App(tk.Tk):
         response (String): The result when execute the command
         """
         message = None
+        if command == "clear":
+            return "clear"
         if re.search(PUBLISH_PATTERN, command):
             _, lname, fname = command.split(" ")
             message = self.client.publish(lname, fname)
@@ -223,7 +225,7 @@ class Client_App(tk.Tk):
             _, fname = command.split(" ")
             message = self.client.fetch(fname)
             if message == "NO_AVAILABLE_HOST":
-                return "Không có peer nào đang sẵn sàng."
+                return "Không có peer nào có file hoặc đang sẵn sàng."
             else:
                 return [message, fname]
 
@@ -244,19 +246,25 @@ class Client_App(tk.Tk):
         if self.mode:
             if not re.search(r"^[1-9]+[0-9]*$", command):
                 output_field.insert(tk.END, "\nVui lòng nhập đúng định dạng\n\n", "color")
+                output_field.see(tk.END)
             elif int(command) > len(self.list_of_ips):
                 output_field.insert(tk.END, f"\nVui lòng chọn số trong khoảng từ 1 đến {len(self.list_of_ips)}\n\n", "color")
+                output_field.see(tk.END)
             else:
                 output_field.insert(tk.END, f"\nNgười dùng chọn peer số {command}\n", "color")
+                output_field.see(tk.END)
                 ip = self.list_of_ips[int(command)-1]
                 message = self.client.retrieve(self.fname, ip)
                 if message == 'DENIED':
-                    output_field.insert(tk.END, f"\nĐối phương từ chối.\n\n", "color")
+                    output_field.insert(tk.END, f"\nĐối phương từ chối :(\n\n", "color")
+                    output_field.see(tk.END)
                 elif message == 'UNREACHABLE':
-                    output_field.insert(tk.END, f"\nKhông kết nối được.\n\n", "color")
+                    output_field.insert(tk.END, f"\nKhông kết nối được!\n\n", "color")
+                    output_field.see(tk.END)
                 else:
                     self.add_files(self.fname, list_files)
-                    output_field.insert(tk.END, f"\nĐã nhận file thành công.\n\n", "color")   
+                    output_field.insert(tk.END, f"\nĐã nhận file thành công!\n\n", "color")
+                    output_field.see(tk.END)   
                 
             self.mode = False
         else:
@@ -264,23 +272,34 @@ class Client_App(tk.Tk):
 
             if not self.command_processing(command):
                 output_field.insert(tk.END, CLIENT_COMMAND, "color")
+                output_field.see(tk.END)
             else:
                 result = self.get_response(command)
-                if command.split(" ")[0] == "publish":
+                if command == "clear":
+                    output_field.delete(0.1, tk.END)
+                    output_field.insert(tk.END, 
+                        "Terminal [Version 1.0.0]\nCopyright (C) phuchuynh. All right reserved.\n\n", "color")
+                elif command.split(" ")[0] == "publish":
                     if result == "File đã tồn tại!":
                         output_field.insert(tk.END, f"\n{result}\n\n", "color")
+                        output_field.see(tk.END)
                     else:
                         output_field.insert(tk.END, f"\nUpload file thành công!\n\n", "color")
+                        output_field.see(tk.END)
                         self.add_files(result, list_files)
                 else:
                     if result == "Không có peer nào có file hoặc đang sẵn sàng.":
                         output_field.insert(tk.END, f"\n{result}\n\n", "color")
+                        output_field.see(tk.END)
                     else:
                         output_field.insert(tk.END, f"\nDanh sách các peer:\n", "color")
+                        output_field.see(tk.END)
                         self.list_of_ips, self.fname = result
                         for i in range(0, len(self.list_of_ips)):
-                            output_field.insert(tk.END, f"*{i+1}. {self.list_of_ips[i]}\n", "color")
+                            output_field.insert(tk.END, f"{i+1}. {self.list_of_ips[i]}\n", "color")
+                            output_field.see(tk.END)
                         output_field.insert(tk.END, f"\nHãy chọn peer bạn mong muốn fetch!\n", "color")
+                        output_field.see(tk.END)
                         self.mode = True
 
         output_field.config(state=tk.DISABLED)

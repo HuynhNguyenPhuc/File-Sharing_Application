@@ -6,7 +6,7 @@ import time
 
 from server import Server
 
-SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n\n"
+SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. ping hostname\n2. discover hostname\n3. clear\n\n"
 
 SERVER_USERNAME = 'admin'
 SERVER_PASSWORD = 'admin'
@@ -14,6 +14,7 @@ SERVER_PORT = 5000
 
 PING_PATTERN = r"^ping\s[\w]+$"
 DISCOVER_PATTERN = r"^discover\s[\w]+$"
+CLEAR_PATTERN = r"^clear$"
 
 class Server_App(tk.Tk):
     def __init__(self):
@@ -127,7 +128,8 @@ class Server_App(tk.Tk):
         """
         Return True when the command is in the correct format
         """
-        if re.search(PING_PATTERN, command) or re.search(DISCOVER_PATTERN, command):
+        if re.search(PING_PATTERN, command) or re.search(DISCOVER_PATTERN, command) \
+            or re.search(CLEAR_PATTERN, command):
             return True
         return False
 
@@ -138,6 +140,8 @@ class Server_App(tk.Tk):
         Return:
         response (String): The result when execute the command
         """
+        if command == "clear":
+            return "clear"
         opcode, hostname = command.split(" ")
         return self.server.run(opcode.upper(), hostname)
     
@@ -150,6 +154,7 @@ class Server_App(tk.Tk):
             if not self.server.output_queue.empty():
                 output = self.server.output_queue.get()
                 server_output.insert(tk.END, output)
+                server_output.see(tk.END)
             self.server.queue_mutex.release()
 
     def clear_output(self, server_output):
@@ -160,14 +165,22 @@ class Server_App(tk.Tk):
         command = input_field.get()
         output_field.config(state=tk.NORMAL)
         output_field.insert(tk.END, f"{self.username}$ " + command + "\n", "color")
+        output_field.see(tk.END)
         input_field.delete(0, tk.END)
 
         if not self.command_processing(command):
             output_field.insert(tk.END, SERVER_COMMAND, "color")
+            output_field.see(tk.END)
         
         else:
             result = self.get_response(command)
-            output_field.insert(tk.END, result, "color")
+            if command == "clear":
+                output_field.delete(0.1, tk.END)
+                output_field.insert(tk.END, 
+                    "Terminal [Version 1.0.0]\nCopyright (C) phuchuynh. All right reserved.\n\n", "color")
+            else:
+                output_field.insert(tk.END, result, "color")
+                output_field.see(tk.END)
 
         output_field.config(state=tk.DISABLED)
     

@@ -128,14 +128,17 @@ class Server_App(tk.Tk):
         command = input_field.get()
         output_field.config(state=tk.NORMAL)
         output_field.insert(tk.END, f"{self.username}$ " + command + "\n", "color")
+        output_field.see(tk.END)
         input_field.delete(0, tk.END)
 
         if not self.command_processing(command):
             output_field.insert(tk.END, SERVER_COMMAND, "color")
+            output_field.see(tk.END)
         
         else:
             result = self.get_response(command)
             output_field.insert(tk.END, result, "color")
+            output_field.see(tk.END)
 
         output_field.config(state=tk.DISABLED)
     
@@ -191,6 +194,7 @@ class Server_App(tk.Tk):
             if not self.server.output_queue.empty():
                 output = self.server.output_queue.get()
                 server_output.insert(tk.END, output)
+                server_output.see(tk.END)
             self.server.queue_mutex.release()
 
     def clear_output(self, server_output):

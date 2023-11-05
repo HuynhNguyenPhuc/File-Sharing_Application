@@ -1,8 +1,4 @@
-# Problem when changing the network, after changing the network, login must happen again
-# Write hostname_file and hostname_list
-
-# import re
-# import os
+import time
 import socket
 import json
 from queue import Queue
@@ -66,9 +62,7 @@ class Server(object):
         Return:
         - None
         """
-        output = "<-------------------------------------------->\n"
-        output += f"Handling request for client {hostname} ... \n"
-        output += ">>\n"
+        output = ">>\n"
         try:
             # Listen to message from client
             client_socket.settimeout(SERVER_TIMEOUT)
@@ -87,27 +81,19 @@ class Server(object):
                 # Handle each kind of message
                 # REQUEST, PUBLISH
                 if message_header == Header.PUBLISH:
-                    output += f"Client {hostname}: PUBLISH\n"
-                    status = self.publish(client_socket, hostname, message)
-                    output += f"Status: {status}\n"
+                    output += self.publish(client_socket, hostname, message)
 
                 # REQUEST, REGISTER
                 elif message_header == Header.REGISTER:
-                    output += f"Client {hostname}: REGISTER\n"
-                    status = self.register(client_socket, message)
-                    output += f"Status: {status}\n"
+                    output += self.register(client_socket, message)
 
                 # REQUEST, FETCH
                 elif message_header == Header.FETCH:
-                    output += f"Client {hostname}: FETCH\n"
-                    status = self.fetch(client_socket, message)
-                    output += f"Status: {status}\n"
+                    output += self.fetch(client_socket, hostname, message)
 
                 # REQUEST, LOG_IN
                 elif message_header == Header.LOG_IN:
-                    output += f"Client {hostname}: LOG_IN\n"
-                    status = self.login(client_socket, address, message)
-                    output += f"Status: {status}\n"
+                    output += self.login(client_socket, address, message)
 
                 # REQUEST, LOG_OUT
                 elif message_header == Header.LOG_OUT:
@@ -115,10 +101,9 @@ class Server(object):
                     status = self.logout(client_socket, hostname)
                     output += f"Status: {status}\n"
         except Exception as e:
-            output += f"Server request handling error for client {hostname}. Status: {e}\n"
+            output += f"Server request handling error for client {hostname}\n"
+            output += f"Status: {e}\n"
         finally:
-            output += ">>\n"
-            output += f'Handling request for client {hostname} done\n'
             self.queue_mutex.acquire()
             if not self.output_queue.full():
                 self.output_queue.put(output)
@@ -150,7 +135,12 @@ class Server(object):
             payload['result'] = 'DUPLICATE'
         response_message = Message(Header.PUBLISH, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
-        return payload['result']
+
+        status = f"Client {hostname}: PUBLISH\n"
+        if payload['result'] == 'OK':
+            status += f'File name: {fname}\n'
+        status += f"Status: {payload['result']}\n"
+        return status
 
     def ping(self, hostname):
         """
@@ -176,12 +166,19 @@ class Server(object):
                 client_socket.settimeout(SERVER_TIMEOUT)
                 client_socket.connect((client_ip, 5001))
                 message = Message(Header.PING, Type.REQUEST, 'PING')
+                start_time = time.time()
                 self.send(client_socket, message)
                 response_message = client_socket.recv(2048).decode()
+                end_time = time.time()
+                round_trip_time = "{:,.8f}".format(end_time - start_time)
                 if response_message:
-                    return client_info + "--Status--: ALIVE\n"
+                    client_info += "--Status--: ALIVE\n"
+                    client_info += f"--Round-Trip Time--: {round_trip_time} (s)\n"
+                    return client_info
             except Exception as e:
-                return client_info + f"--Status--: NOT ALIVE - {e}\n"
+                client_info += f"--Status--: NOT ALIVE\n"
+                client_info += f"--Error--: {e}\n"
+                return client_info
 
     def discover(self, hostname):
         """
@@ -207,15 +204,21 @@ class Server(object):
                 client_socket.settimeout(SERVER_TIMEOUT)
                 client_socket.connect((client_ip, 5001))
                 message = Message(Header.DISCOVER, Type.REQUEST, 'DISCOVER')
+                start_time = time.time()
                 self.send(client_socket, message)
                 response_message = client_socket.recv(2048).decode()
+                end_time = time.time()
                 file_list = Message(None, None, None, response_message).get_info()
-                status = '--Status--: SUCCESS\n--File list--:\n'
+                status = "--Status--: SUCCESS\n"
+                status += f"--Round-Trip Time: {str(end_time - start_time)} (s)\n"
+                status += "--File list--:\n"
                 for file in list(file_list.keys()):
                     status += str(file) + '\n'
                 return client_info + status
             except Exception as e:
-                return client_info + f"--Status--: FAIL - {e}\n"
+                client_info += f"--Status--: FAIL\n"
+                client_info += f"--Error--: {e}\n"
+                return client_info
 
     def register(self, client_socket, message):
         """
@@ -244,7 +247,12 @@ class Server(object):
                 json.dump(self.hostname_file, fp, indent=4)
         response_message = Message(Header.REGISTER, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
-        return payload
+
+        status = f"Client {hostname}: REGISTER\n"
+        if payload == 'OK':
+            status += f"Password: {password}\n"
+        status += f"Status: {payload}\n"
+        return status
 
     def login(self, client_socket, address, message):
         """
@@ -284,7 +292,10 @@ class Server(object):
             payload = 'HOSTNAME'
         response_message = Message(Header.LOG_IN, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
-        return payload
+
+        status = f"Client {hostname}: LOG_IN\n"
+        status += f"Status: {payload}\n"
+        return status
 
     def logout(self, client_socket, hostname):
         """
@@ -304,7 +315,7 @@ class Server(object):
         self.send(client_socket, response_message)
         return 'OK'
 
-    def fetch(self, client_socket, message):
+    def fetch(self, client_socket, hostname, message):
         """
         This method is used to response to FETCH request. The response message to client will contain list of IP
         addresses which are alive and have fetching requested file identified by fname
@@ -321,7 +332,10 @@ class Server(object):
         payload = {'fname': fname, 'avail_ips': ip_with_file_list}
         response_message = Message(Header.FETCH, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
-        return 'OK'
+        status = f"Client {hostname}: FETCH\n"
+        status += f"File name: {fname}\n"
+        status += f"Status: OK\n"
+        return status
 
     def search(self, fname):
         """
@@ -390,6 +404,8 @@ class Server(object):
                 response_message = client_socket.recv(2048).decode()
                 file_list = Message(None, None, None, response_message).get_info()
                 result = True
+                if len(list(file_list.keys())) != len(list(self.hostname_file[hostname])):
+                    return False
                 for server_file in list(file_list.keys()):
                     if server_file not in self.hostname_file[hostname]:
                         result = False

@@ -1,6 +1,6 @@
 import socket
 from threading import Thread
-from ftplib import FTP, FTP_TLS
+from ftplib import FTP
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import ThreadedFTPServer
@@ -405,7 +405,7 @@ class Client:
         # File transfer protocol ends
         
         # Publish file
-        self.publish(os.path.abspath(dest_dir + dest_file).replace('\\', '/'), fname)
+        self.publish(os.path.abspath(dest_dir + dest_file), fname)
         return 'OK'
     
     def is_login(self):

@@ -446,12 +446,11 @@ class Client:
             Thread.__init__(self)
             self.host_ip = host_ip
             self.check_cache = check_cache
-        
-        def run(self):
+            
             # Initialize FTP server
             authorizer = DummyAuthorizer()
             self.check_cache(None)
-            authorizer.add_user('mmt', 'hk231', './cache', perm='rl')
+            authorizer.add_user('mmt', 'hk231', './cache', perm='r')
             handler = FTPHandler
             handler.authorizer = authorizer
             handler.banner = "Connection Success"
@@ -459,7 +458,8 @@ class Client:
             self.server = ThreadedFTPServer((self.host_ip, 21), handler)
             self.server.max_cons = 256
             self.server.max_cons_per_ip = 5
-            
+        
+        def run(self):
             self.server.serve_forever()
         
         def stop(self):

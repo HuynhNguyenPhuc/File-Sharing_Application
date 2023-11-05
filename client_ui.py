@@ -35,11 +35,28 @@ class Client_App(tk.Tk):
         self.current_page_frame.pack()
 
     def trigger(self, frame):
+        """
+        This function used for page redirection
+
+        Parameters: None
+        Return: None
+        """
+        if frame == self.main_page:
+            self.client.stop()
+            self.client_on = False
         self.current_page_frame.pack_forget()
         self.current_page_frame = frame()
         self.current_page_frame.pack()
 
     def sign_up_submit(self, username_entry, password_entry):
+        """
+        This function used for handling register submission.
+
+        Parameters:
+        + username_entry (tk.Entry): Entry for username
+        + password_entry (tk.Entry): Entry for password
+        Return: None
+        """
         username = username_entry.get()
         password = password_entry.get()
 
@@ -50,7 +67,7 @@ class Client_App(tk.Tk):
         # Send username and password to server step
         self.client = Client(SERVER_IP, 5000, username, password)
         message = self.client.register()
-        self.client.disconnect()
+        self.client.stop()
         del self.client
 
         if message == 'SERVER_CONNECT_ERROR':
@@ -66,6 +83,13 @@ class Client_App(tk.Tk):
 
     
     def sign_up(self):
+        """
+        This function used for create a sign up frame
+
+        Parameters: None
+        Return:
+        sign_up_frame (tk.Frame): The sign up frame
+        """
         sign_up_frame = tk.Frame(borderwidth = 70)
 
         sign_up_label = tk.Label(sign_up_frame, text="SIGN UP", font=("San Serif", 24, "bold"), borderwidth = 10)
@@ -102,7 +126,7 @@ class Client_App(tk.Tk):
         message = self.client.log_in()
 
         if not message == 'OK':
-            self.client.disconnect()
+            self.client.stop()
             del self.client
 
         if message == 'SERVER_CONNECT_ERROR':
@@ -116,7 +140,7 @@ class Client_App(tk.Tk):
         else:
             self.username = username
             self.password = password
-            self.cliend_on = True
+            self.client_on = True
 
             messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + username + "!")
 
@@ -248,13 +272,6 @@ class Client_App(tk.Tk):
                         self.mode = True
 
         output_field.config(state=tk.DISABLED)
-
-    def log_out(self):
-        self.client.log_out()
-        self.client.disconnect()
-        self.cliend_on = False
-        self.trigger(self.main_page)
-
     
     def terminal(self):
         terminal_frame = tk.Frame()
@@ -276,6 +293,9 @@ class Client_App(tk.Tk):
         list_files.grid(row = 1, column = 70, columnspan = 20, padx = 5, pady = 5)
         list_files_header = "         My Repository      \n\n"
         list_files.insert(tk.END, list_files_header)
+        list_of_files = self.client.get_fname()
+        for i in list_of_files:
+            list_files.insert(tk.END, f"* {i}\n")
         list_files.config(state = tk.DISABLED)
 
         input_header = tk.Label(terminal_frame, text = ">>>")
@@ -290,8 +310,8 @@ class Client_App(tk.Tk):
     
     def close(self):
         if self.client_on:
-            self.client.log_out()
-            self.client.disconnect()
+            self.client.stop()
+        self.destroy()
 
 
 if __name__ == "__main__":

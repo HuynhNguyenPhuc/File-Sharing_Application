@@ -35,11 +35,14 @@ class Client:
         if not os.path.exists("published_file.json"):
             with open("published_file.json", "w") as fp:
                 pass
-        with open("published_file.json", "r") as fp:
-            self.published_files = json.load(fp)
+        else:
+            with open("published_file.json", "r") as fp:
+                self.published_files = json.load(fp)
         self.ftp_server = None # To be initialized only once per lifetime
-        self.isFTPRunning = False
+        self.__isFTPRunning = False
+        self.__isConnected = False
         self.t: dict[str, Thread] = {}
+        
         self.connect()
     
     def connect(self):
@@ -47,22 +50,29 @@ class Client:
         Establish connection with server and join the P2P network and start running.
         Must be called after object initialization.
         """
+        if self.__isConnected:
+            return
         # Bind a socket to this client
         self.listen_socket.bind((self.client_host, self.client_port))
         
         # A thread for FTP server -> FTPServerSide class, to be added here instead of down there
+        self.initiate_ftp_server()
         
         # A thread to start listening incoming messages on the bound socket
         self.t['listen_thread'] = Thread(target=self.listen)
         
         for thread in self.t.values():
             thread.start()
+        
+        self.__isConnected = True
     
-    def disconnect(self):
+    def stop(self):
         """
         Disconnect from the server and network and stop running.
         Must be called before destroying the object.
         """
+        if not self.__isConnected:
+            return
         # Log out
         if self.is_login():
             self.log_out()
@@ -82,16 +92,18 @@ class Client:
         
         for thread in self.t.values():
             thread.join()
+        
+        self.__isConnected = False
     
     def initiate_ftp_server(self): # currently option 1 in testcase, to be added to connect()/constructor
         """
         Allocate and establish the server for FTP connection.
         """
-        if isinstance(self.ftp_server, self.FTPServerSide) and self.isFTPRunning:
+        if isinstance(self.ftp_server, self.FTPServerSide) and self.__isFTPRunning:
             return
         self.ftp_server = self.FTPServerSide(self.client_host, self.__check_cached__)
         self.ftp_server.start()
-        self.isFTPRunning = True
+        self.__isFTPRunning = True
     
     def stop_ftp_server(self): # currently option 2 in testcase, to be added to disconnect()/destructor
         """
@@ -99,11 +111,11 @@ class Client:
         """
         if not isinstance(self.ftp_server, self.FTPServerSide):
             raise Exception('Not an FTP server')
-        if isinstance(self.ftp_server, self.FTPServerSide) and not self.isFTPRunning:
+        if isinstance(self.ftp_server, self.FTPServerSide) and not self.__isFTPRunning:
             return
         self.ftp_server.stop()
         self.ftp_server.join()
-        self.isFTPRunning = False
+        self.__isFTPRunning = False
     
     def listen(self):
         """
@@ -223,7 +235,6 @@ class Client:
             self.login_succeeded = True
         else: # HOSTNAME/PASSWORD/AUTHENTIC
             self.login_succeeded = False
-        # print(f"Login status: {result}")
         return result
     
     def log_out(self):
@@ -398,6 +409,9 @@ class Client:
     
     def is_login(self):
         return self.login_succeeded
+    
+    def get_fname(self):
+        return list(self.published_files.keys())
     
     def __preprocess_file_transfer__(self, sock, fname):
         if fname in self.published_files:

@@ -38,6 +38,12 @@ class Server_App(tk.Tk):
         self.current_page_frame.pack()
 
     def trigger(self, frame):
+        """
+        This function used for page redirection
+
+        Parameters: None
+        Return: None
+        """
         if frame == self.main_page:
             self.server.close()
             self.server_on = False

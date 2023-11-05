@@ -35,18 +35,15 @@ class Client:
         if not os.path.exists("published_file.json"):
             with open("published_file.json", "w") as fp:
                 pass
-        with open("published_file.json", "r") as fp:
-            self.published_files = json.load(fp)
+        else:
+            with open("published_file.json", "r") as fp:
+                self.published_files = json.load(fp)
         self.ftp_server = None # To be initialized only once per lifetime
         self.__isFTPRunning = False
         self.__isConnected = False
         self.t: dict[str, Thread] = {}
         
         self.connect()
-    
-    def __del__(self):
-        print("Destructor called")
-        self.disconnect()
     
     def connect(self):
         """
@@ -412,6 +409,9 @@ class Client:
     
     def is_login(self):
         return self.login_succeeded
+    
+    def get_fname(self):
+        return list(self.published_files.keys())
     
     def __preprocess_file_transfer__(self, sock, fname):
         if fname in self.published_files:

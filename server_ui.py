@@ -22,6 +22,7 @@ class Server_App(tk.Tk):
         # Some declarations
         self.username, self.password = None, None
         self.server = None
+        self.server_on = None
 
         self.title("File Sharing Application")
         self.minsize(600, 400)
@@ -37,6 +38,9 @@ class Server_App(tk.Tk):
         self.current_page_frame.pack()
 
     def trigger(self, frame):
+        if frame == self.main_page:
+            self.server.close()
+            self.server_on = False
         self.current_page_frame.pack_forget()
         self.current_page_frame = frame()
         self.current_page_frame.pack()
@@ -59,6 +63,7 @@ class Server_App(tk.Tk):
         
         self.server = Server(SERVER_PORT)
         self.server.start()
+        self.server_on = True
         
         self.current_page_frame.pack_forget()
         self.current_page_frame = self.terminal()
@@ -205,6 +210,8 @@ class Server_App(tk.Tk):
         self.closing = True
         if self.thread:
             self.thread.join()
+        if self.server_on:
+            self.server.close()
         self.destroy()
 
 

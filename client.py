@@ -32,7 +32,7 @@ class Client:
         self.login_succeeded = False
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.published_files = {}
-        if not os.path.exists("published_file.json"):
+        if not os.path.exists("published_file.json") or os.path.getsize("published_file.json") == 0:
             with open("published_file.json", "w") as fp:
                 fp.write("{}")
         else:
@@ -397,7 +397,7 @@ class Client:
         
         # File transfer protocol begins
         ftp = FTP(host)
-        ftp.log_in('mmt', 'hk231')
+        ftp.login('mmt', 'hk231')
         with open(dest_dir + dest_file, 'wb') as fp:
             ftp.retrbinary(f'RETR {fname}', fp.write)
         
@@ -416,10 +416,10 @@ class Client:
     
     def __preprocess_file_transfer__(self, sock, fname):
         if fname in self.published_files:
-            result = 'DENIED'
-        else:
             self.__check_cached__(fname)
             result = 'OK'
+        else:
+            result = 'DENIED'
         response = Message(Header.RETRIEVE, Type.RESPONSE, result)
         self.send_message(response, sock)
     

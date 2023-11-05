@@ -287,6 +287,16 @@ class Server(object):
         return payload
 
     def logout(self, client_socket, hostname):
+        """
+        This method is used to response to LOG_OUT
+
+        Parameters:
+        - client_socket (socket): Connection between client and server itself
+        - hostname (str): Hostname of client
+
+        Return:
+        - None
+        """
         del_address = self.hostname_to_ip[hostname]
         self.hostname_to_ip.pop(hostname)
         self.ip_to_hostname.pop(del_address)
@@ -304,7 +314,7 @@ class Server(object):
         - message (Message): Request message from client
 
         Return:
-        - None
+        - Nonef
         """
         fname = message.get_info()
         ip_with_file_list = self.search(fname)

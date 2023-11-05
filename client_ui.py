@@ -227,6 +227,9 @@ class Client_App(tk.Tk):
 
     # Trigger for excute command
     def execute_command(self, input_field, output_field, list_files):
+        """
+        Used
+        """
         command = input_field.get()
         output_field.config(state=tk.NORMAL)
         if self.mode:
@@ -236,7 +239,7 @@ class Client_App(tk.Tk):
                 output_field.insert(tk.END, f"\nVui lòng chọn số trong khoảng từ 1 đến {len(self.list_of_ips)}\n\n", "color")
             else:
                 output_field.insert(tk.END, f"\nNgười dùng chọn {command}.\n\n", "color")
-                ip = self.list_of_ips[int(command)]
+                ip = self.list_of_ips[int(command)-1]
                 message = self.client.retrieve(self.fname, ip)
                 if message == 'DENIED':
                     output_field.insert(tk.END, f"\nĐối phương từ chối.\n\n", "color")
@@ -267,7 +270,7 @@ class Client_App(tk.Tk):
                         output_field.insert(tk.END, f"\nDanh sách các peer:\n", "color")
                         self.list_of_ips, self.fname = result
                         for i in range(0, len(self.list_of_ips)):
-                            output_field.insert(tk.END, f"*{i}. {self.list_of_ips[i]}\n", "color")
+                            output_field.insert(tk.END, f"*{i+1}. {self.list_of_ips[i]}\n", "color")
                         output_field.insert(tk.END, f"\nHãy chọn peer bạn mong muốn fetch!\n", "color")
                         self.mode = True
 

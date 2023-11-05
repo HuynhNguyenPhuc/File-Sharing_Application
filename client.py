@@ -34,7 +34,7 @@ class Client:
         self.published_files = {}
         if not os.path.exists("published_file.json"):
             with open("published_file.json", "w") as fp:
-                pass
+                fp.write("{}")
         else:
             with open("published_file.json", "r") as fp:
                 self.published_files = json.load(fp)
@@ -43,12 +43,14 @@ class Client:
         self.__isConnected = False
         self.t: dict[str, Thread] = {}
         
-        self.connect()
+        self.run()
     
-    def connect(self):
+    def run(self):
         """
-        Establish connection with server and join the P2P network and start running.
-        Must be called after object initialization.
+        Initiate listening socket on port 5001 and FTP server on port 21.
+        Socket port 5001 is used to listen incoming messages from server (ping, discover command)
+        and other peers (request before transfering file). FTP server port 21
+        is used to transfer file. This function also initialize other resources if necessary.
         """
         if self.__isConnected:
             return
@@ -68,8 +70,7 @@ class Client:
     
     def stop(self):
         """
-        Disconnect from the server and network and stop running.
-        Must be called before destroying the object.
+        Stop listening in port 5001 and port 21. Clean up other resources if necessary.
         """
         if not self.__isConnected:
             return
@@ -95,7 +96,7 @@ class Client:
         
         self.__isConnected = False
     
-    def initiate_ftp_server(self): # currently option 1 in testcase, to be added to connect()/constructor
+    def initiate_ftp_server(self):
         """
         Allocate and establish the server for FTP connection.
         """
@@ -105,12 +106,12 @@ class Client:
         self.ftp_server.start()
         self.__isFTPRunning = True
     
-    def stop_ftp_server(self): # currently option 2 in testcase, to be added to disconnect()/destructor
+    def stop_ftp_server(self):
         """
         Shut down the FTP server.
         """
         if not isinstance(self.ftp_server, self.FTPServerSide):
-            raise Exception('Not an FTP server')
+            return
         if isinstance(self.ftp_server, self.FTPServerSide) and not self.__isFTPRunning:
             return
         self.ftp_server.stop()

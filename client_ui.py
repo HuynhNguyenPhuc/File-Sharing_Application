@@ -7,9 +7,9 @@ from client import Client
 
 CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n\n"
 
-SERVER_IP = 'localhost' 
+SERVER_IP = '192.168.43.244' 
 
-PUBLISH_PATTERN = r"^publish\s[A-Z]:(/(\w)+)*(/\w+.[A-Za-z])\s\w+.[A-Za-z]$"
+PUBLISH_PATTERN = r"^publish\s[A-Z]:(\\(\w)+)*(\\\w+.[A-Za-z]+)\s\w+.[A-Za-z]+$"
 FETCH_PATTERN = r"^fetch\s(\w+.[A-Za-z]+)$"
 
 class Client_App(tk.Tk):
@@ -80,7 +80,7 @@ class Client_App(tk.Tk):
         sign_up_password_label.grid(row=2, column=0, sticky="we", padx = 10, pady=10)
         sign_up_password_entry = tk.Entry(sign_up_frame, show="*", width = 50, font=("San Serif", 13))
         sign_up_password_entry.grid(row=2, column=1, columnspan= 9, sticky = "we", padx = 10, pady = 10, ipadx=2, ipady = 2)
-        sign_up_password_entry.bind('<Return>', lambda event: self.submit(sign_up_username_entry, sign_up_password_entry))
+        sign_up_password_entry.bind('<Return>', lambda event: self.sign_up_submit(sign_up_username_entry, sign_up_password_entry))
 
         sign_up_button = tk.Button(sign_up_frame, text="Sign Up", font=("San Serif", 13), command = lambda: self.sign_up_submit(sign_up_username_entry, sign_up_password_entry))
         sign_up_button.grid(row = 3, column = 1)
@@ -97,18 +97,6 @@ class Client_App(tk.Tk):
             messagebox.showerror("Lỗi đăng nhập", "Vui lòng điền đầy đủ thông tin.")
             return
         
-        ####### Use for testing, remove later ######
-        if username == "phuchuynh" and password == "phuchuynh":
-            self.username = username
-            self.password = password
-
-            messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + username + "!")
-            
-            self.current_page_frame.pack_forget()
-            self.current_page_frame = self.terminal()
-            self.current_page_frame.pack()
-            return     
-        ############################################
         self.client = Client(SERVER_IP, 5000, username, password)
         message = self.client.log_in()
 
@@ -123,8 +111,7 @@ class Client_App(tk.Tk):
         elif message == 'PASSWORD':
             messagebox.showerror("Lỗi đăng nhập", "Sai mật khẩu.")
         elif message == 'AUTHENTIC':
-            messagebox.showerror("Lỗi đăng nhập", "Bạn đang cố gắng đăng nhập\
-                                  một tài khoản không thuộc về bạn. Vui lòng biết điều!!!")
+            messagebox.showerror("Lỗi đăng nhập", "Bạn đang cố gắng đăng nhập một tài khoản không thuộc về bạn. Vui lòng biết điều!!!")
         else:
             self.username = username
             self.password = password
@@ -249,7 +236,7 @@ class Client_App(tk.Tk):
                         self.add_files(result, list_files)
                 else:
                     if result == "Không có peer nào đang sẵn sàng.":
-                        output_field.insert(tk.END, f"\n\{result}\n\n", "color")
+                        output_field.insert(tk.END, f"\n{result}\n\n", "color")
                     else:
                         output_field.insert(tk.END, f"\nDanh sách các peer:\n", "color")
                         self.list_of_ips, self.fname = result
@@ -259,6 +246,12 @@ class Client_App(tk.Tk):
                         self.mode = True
 
         output_field.config(state=tk.DISABLED)
+
+    def log_out(self):
+        self.client.log_out()
+        self.client.disconnect()
+        self.trigger(self.main_page)
+
     
     def terminal(self):
         terminal_frame = tk.Frame()
@@ -266,7 +259,7 @@ class Client_App(tk.Tk):
         header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 11, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
-        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.trigger(self.main_page))
+        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = self.log_out)
         log_out_button.grid(row = 0, column = 89, padx = 5, pady = 5)
         
 

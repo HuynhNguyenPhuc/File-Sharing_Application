@@ -360,9 +360,9 @@ def main():
 
     server_ip = sys.argv[1]
     print(server_ip)
-    server_port = str(sys.argv[2])
+    server_port = int(sys.argv[2])
     print(server_port)
-    
+
     app = Client_App(server_port)
     app.protocol("WM_DELETE_WINDOW", app.close)
     app.mainloop()

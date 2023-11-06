@@ -17,13 +17,13 @@ DISCOVER_PATTERN = r"^discover\s[\w]+$"
 CLEAR_PATTERN = r"^clear$"
 
 class Server_App(tk.Tk):
-    def __init__(self, server_port_number):
+    def __init__(self, server_port):
         super().__init__()
 
         # Some declarations
         self.username, self.password = None, None
         self.server = None
-        self.server_port_number = server_port_number
+        self.server_port = server_port
         self.server_on = None
 
         if not os.path.exists("hostname_file.json"):
@@ -79,7 +79,7 @@ class Server_App(tk.Tk):
             messagebox.showerror("Lỗi đăng nhập", "Sai tên đăng nhập hoặc mật khẩu.")
             return
         
-        self.server = Server(self.server_port_number)
+        self.server = Server(self.server_port)
         self.server.start()
         self.server_on = True
         
@@ -250,7 +250,7 @@ def main():
     if len(sys.argv) > 2:
         print("Invalid syntax")
 
-    server_port = sys.argv[1]
+    server_port = int(sys.argv[1])
     
     app = Server_App(server_port)
     app.protocol("WM_DELETE_WINDOW", app.close)

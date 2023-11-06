@@ -46,9 +46,6 @@ class Server_App(tk.Tk):
         Parameters: None
         Return: None
         """
-        if frame == self.main_page:
-            self.server.close()
-            self.server_on = False
         self.current_page_frame.pack_forget()
         self.current_page_frame = frame()
         self.current_page_frame.pack()
@@ -184,6 +181,11 @@ class Server_App(tk.Tk):
                 output_field.see(tk.END)
 
         output_field.config(state=tk.DISABLED)
+
+    def log_out(self):
+        self.server.close()
+        self.server_on = False
+        self.trigger(self.main_page)
     
     def terminal(self):
         terminal_frame = tk.Frame()
@@ -193,7 +195,7 @@ class Server_App(tk.Tk):
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
         log_out_button = tk.Button(terminal_frame, text = "Log Out", 
-                                   command = lambda: self.trigger(self.main_page))
+                                   command = self.log_out)
         log_out_button.grid(row = 0, column = 209, pady = 5)
         
         terminal_output = tk.Text(terminal_frame, background = "black")

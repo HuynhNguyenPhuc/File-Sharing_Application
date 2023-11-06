@@ -43,9 +43,6 @@ class Client_App(tk.Tk):
         Parameters: None
         Return: None
         """
-        if frame == self.main_page:
-            self.client.stop()
-            self.client_on = False
         self.current_page_frame.pack_forget()
         self.current_page_frame = frame()
         self.current_page_frame.pack()
@@ -306,14 +303,19 @@ class Client_App(tk.Tk):
                         self.mode = True
 
         output_field.config(state=tk.DISABLED)
-    
+
+    def log_out(self):
+        self.client.stop()
+        self.client_on = False
+        self.trigger(self.main_page)
+
     def terminal(self):
         terminal_frame = tk.Frame()
 
         header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 11, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
-        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.trigger(self.main_page))
+        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = self.log_out)
         log_out_button.grid(row = 0, column = 89, padx = 5, pady = 5)
         
 

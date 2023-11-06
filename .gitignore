@@ -1,2 +1,6 @@
 test_server.py
 test_client.py
+hostname_file.json
+hostname_list.json
+published_file.json
+__pycache__

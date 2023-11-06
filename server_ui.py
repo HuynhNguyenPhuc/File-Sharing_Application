@@ -3,6 +3,7 @@ from tkinter import messagebox
 import re
 from threading import Thread, Lock
 import time
+import sys
 
 from server import Server
 
@@ -10,19 +11,19 @@ SERVER_COMMAND = "\n**** Invalid syntax ****\nFormat of server's commands\n1. pi
 
 SERVER_USERNAME = 'admin'
 SERVER_PASSWORD = 'admin'
-SERVER_PORT = 5000
 
 PING_PATTERN = r"^ping\s[\w]+$"
 DISCOVER_PATTERN = r"^discover\s[\w]+$"
 CLEAR_PATTERN = r"^clear$"
 
 class Server_App(tk.Tk):
-    def __init__(self):
+    def __init__(self, server_port):
         super().__init__()
 
         # Some declarations
         self.username, self.password = None, None
         self.server = None
+        self.server_port = server_port
         self.server_on = None
 
         self.title("File Sharing Application")
@@ -45,9 +46,6 @@ class Server_App(tk.Tk):
         Parameters: None
         Return: None
         """
-        if frame == self.main_page:
-            self.server.close()
-            self.server_on = False
         self.current_page_frame.pack_forget()
         self.current_page_frame = frame()
         self.current_page_frame.pack()
@@ -68,7 +66,7 @@ class Server_App(tk.Tk):
             messagebox.showerror("Lỗi đăng nhập", "Sai tên đăng nhập hoặc mật khẩu.")
             return
         
-        self.server = Server(SERVER_PORT)
+        self.server = Server(self.server_port)
         self.server.start()
         self.server_on = True
         
@@ -183,6 +181,11 @@ class Server_App(tk.Tk):
                 output_field.see(tk.END)
 
         output_field.config(state=tk.DISABLED)
+
+    def log_out(self):
+        self.server.close()
+        self.server_on = False
+        self.trigger(self.main_page)
     
     def terminal(self):
         terminal_frame = tk.Frame()
@@ -192,7 +195,7 @@ class Server_App(tk.Tk):
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
         log_out_button = tk.Button(terminal_frame, text = "Log Out", 
-                                   command = lambda: self.trigger(self.main_page))
+                                   command = self.log_out)
         log_out_button.grid(row = 0, column = 209, pady = 5)
         
         terminal_output = tk.Text(terminal_frame, background = "black")
@@ -233,8 +236,17 @@ class Server_App(tk.Tk):
             self.server.close()
         self.destroy()
 
+def main():
+    if len(sys.argv) < 2:
+        print("Please provide server port number!")
+    if len(sys.argv) > 2:
+        print("Invalid syntax")
 
-if __name__ == "__main__":
-    app = Server_App()
+    server_port = int(sys.argv[1])
+    
+    app = Server_App(server_port)
     app.protocol("WM_DELETE_WINDOW", app.close)
     app.mainloop()
+
+if __name__ == "__main__":
+   main()

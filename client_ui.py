@@ -1,24 +1,27 @@
 import tkinter as tk
 from tkinter import messagebox
 import re
+import os, sys
 
 from client import Client
 
 CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n3. clear\n\n"
 
-SERVER_IP = '192.168.57.244' 
-
 PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:[\/\\](?:[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*[\/\\])*[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z]+\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+$"
 FETCH_PATTERN = r"^fetch\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z0-9]+$"
 CLEAR_PATTERN = r"^clear$"
+
 class Client_App(tk.Tk):
-    def __init__(self):
+    def __init__(self, server_ip, server_port):
         super().__init__()
 
         # Some declarations
         self.username, self.password = None, None
         self.client = None
         self.client_on = None
+
+        self.server_ip = server_ip
+        self.server_port = server_port
 
         self.mode = False
         self.list_of_ips = None
@@ -40,9 +43,6 @@ class Client_App(tk.Tk):
         Parameters: None
         Return: None
         """
-        if frame == self.main_page:
-            self.client.stop()
-            self.client_on = False
         self.current_page_frame.pack_forget()
         self.current_page_frame = frame()
         self.current_page_frame.pack()
@@ -64,7 +64,7 @@ class Client_App(tk.Tk):
             return
 
         # Send username and password to server step
-        self.client = Client(SERVER_IP, 5000, username, password)
+        self.client = Client(self.server_ip, self.server_port, username, password)
         message = self.client.register()
         self.client.stop()
         del self.client
@@ -129,7 +129,7 @@ class Client_App(tk.Tk):
             messagebox.showerror("Lỗi đăng nhập", "Vui lòng điền đầy đủ thông tin.")
             return
         
-        self.client = Client(SERVER_IP, 5000, username, password)
+        self.client = Client(self.server_ip, self.server_port, username, password)
         message = self.client.log_in()
 
         if not message == 'OK':
@@ -256,7 +256,7 @@ class Client_App(tk.Tk):
                 ip = self.list_of_ips[int(command)-1]
                 message = self.client.retrieve(self.fname, ip)
                 if message == 'DENIED':
-                    output_field.insert(tk.END, f"\nĐối phương từ chối :(\n\n", "color")
+                    output_field.insert(tk.END, f"\nMáy đối phương không có file hoặc đường dẫn bị lỗi :(\n\n", "color")
                     output_field.see(tk.END)
                 elif message == 'UNREACHABLE':
                     output_field.insert(tk.END, f"\nKhông kết nối được!\n\n", "color")
@@ -303,14 +303,19 @@ class Client_App(tk.Tk):
                         self.mode = True
 
         output_field.config(state=tk.DISABLED)
-    
+
+    def log_out(self):
+        self.client.stop()
+        self.client_on = False
+        self.trigger(self.main_page)
+
     def terminal(self):
         terminal_frame = tk.Frame()
 
         header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 11, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
-        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.trigger(self.main_page))
+        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = self.log_out)
         log_out_button.grid(row = 0, column = 89, padx = 5, pady = 5)
         
 
@@ -344,8 +349,20 @@ class Client_App(tk.Tk):
             self.client.stop()
         self.destroy()
 
+def main():
+    if len(sys.argv) < 3:
+        print("Please provide server ip number and server port number!")
+    if len(sys.argv) > 3:
+        print("Invalid syntax")
 
-if __name__ == "__main__":
-    app = Client_App()
+    server_ip = sys.argv[1]
+    print(server_ip)
+    server_port = int(sys.argv[2])
+    print(server_port)
+
+    app = Client_App(server_ip, server_port)
     app.protocol("WM_DELETE_WINDOW", app.close)
     app.mainloop()
+
+if __name__ == "__main__":
+   main()

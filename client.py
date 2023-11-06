@@ -29,19 +29,20 @@ class Client:
         self.client_password = client_password
         self.client_host = socket.gethostbyname(socket.gethostname())
         self.client_port = 5001
-        self.login_succeeded = False
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.published_files = {}
+        self.listen_socket.bind((self.client_host, self.client_port))
         if not os.path.exists("published_file.json") or os.path.getsize("published_file.json") == 0:
             with open("published_file.json", "w") as fp:
                 fp.write("{}")
-        else:
-            with open("published_file.json", "r") as fp:
-                self.published_files = json.load(fp)
-        self.ftp_server = None # To be initialized only once per lifetime
-        self.__isFTPRunning = False
-        self.__isConnected = False
-        self.t: dict[str, Thread] = {}
+        with open("published_file.json", "r") as fp:
+            self.published_files = json.load(fp)
+        self.__login_succeeded = False
+        self.__is_connected = False
+        self.__t: dict[str, Thread] = {} # A collection of thread objects
+        # A thread to allocate and establish the server for FTP connection -> FTPServerSide class
+        self.__t['ftp_server_thread'] = self.FTPServerSide(self.client_host, self.__check_cached__)
+        # A thread to start listening incoming messages on the bound socket
+        self.__t['listen_thread'] = Thread(target=self.listen)
         
         self.run()
     
@@ -52,27 +53,19 @@ class Client:
         and other peers (request before transfering file). FTP server port 21
         is used to transfer file. This function also initialize other resources if necessary.
         """
-        if self.__isConnected:
+        if self.__is_connected:
             return
-        # Bind a socket to this client
-        self.listen_socket.bind((self.client_host, self.client_port))
         
-        # A thread for FTP server -> FTPServerSide class, to be added here instead of down there
-        self.initiate_ftp_server()
-        
-        # A thread to start listening incoming messages on the bound socket
-        self.t['listen_thread'] = Thread(target=self.listen)
-        
-        for thread in self.t.values():
+        for thread in self.__t.values():
             thread.start()
         
-        self.__isConnected = True
+        self.__is_connected = True
     
     def stop(self):
         """
         Stop listening in port 5001 and port 21. Clean up other resources if necessary.
         """
-        if not self.__isConnected:
+        if not self.__is_connected:
             return
         # Log out
         if self.is_login():
@@ -81,42 +74,21 @@ class Client:
         # Close the listening socket
         self.listen_socket.close()
         
-        # Close FTP server if it is running
+        # Shut down FTP server if it is running
         try:
-            self.stop_ftp_server()
+            self.__t['ftp_server_thread'].stop()
         except Exception as e:
             print(f"Disconnect FTP server forbidden: {e}")
+        self.__t['ftp_server_thread'].join()
         
         # Destroy cache directory
         if os.path.exists('cache'):
             shutil.rmtree('cache')
         
-        for thread in self.t.values():
+        for thread in self.__t.values():
             thread.join()
         
-        self.__isConnected = False
-    
-    def initiate_ftp_server(self):
-        """
-        Allocate and establish the server for FTP connection.
-        """
-        if isinstance(self.ftp_server, self.FTPServerSide) and self.__isFTPRunning:
-            return
-        self.ftp_server = self.FTPServerSide(self.client_host, self.__check_cached__)
-        self.ftp_server.start()
-        self.__isFTPRunning = True
-    
-    def stop_ftp_server(self):
-        """
-        Shut down the FTP server.
-        """
-        if not isinstance(self.ftp_server, self.FTPServerSide):
-            return
-        if isinstance(self.ftp_server, self.FTPServerSide) and not self.__isFTPRunning:
-            return
-        self.ftp_server.stop()
-        self.ftp_server.join()
-        self.__isFTPRunning = False
+        self.__is_connected = False
     
     def listen(self):
         """
@@ -233,9 +205,9 @@ class Client:
         response = Message(None, None, None, response)
         result = response.get_info()
         if result == 'OK':
-            self.login_succeeded = True
+            self.__login_succeeded = True
         else: # HOSTNAME/PASSWORD/AUTHENTIC
-            self.login_succeeded = False
+            self.__login_succeeded = False
         return result
     
     def log_out(self):
@@ -263,7 +235,7 @@ class Client:
         response = Message(None, None, None, response)
         result = response.get_info()
         if result == 'OK':
-            self.login_succeeded = False
+            self.__login_succeeded = False
         return result
     
     def reply_discover_message(self, sock):
@@ -363,7 +335,7 @@ class Client:
         tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tmp_sock.settimeout(5)
         try:
-            tmp_sock.connect((host, 5001))
+            tmp_sock.connect((host, self.client_port))
         except:
             return 'UNREACHABLE'
         
@@ -409,13 +381,13 @@ class Client:
         return 'OK'
     
     def is_login(self):
-        return self.login_succeeded
+        return self.__login_succeeded
     
     def get_fname(self):
         return list(self.published_files.keys())
     
     def __preprocess_file_transfer__(self, sock, fname):
-        if fname in self.published_files:
+        if fname and fname in self.published_files and os.path.exists(self.published_files[fname]):
             self.__check_cached__(fname)
             result = 'OK'
         else:

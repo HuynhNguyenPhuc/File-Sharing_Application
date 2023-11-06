@@ -1,17 +1,16 @@
 import tkinter as tk
 from tkinter import messagebox
 import re
-import pymysql
 
 from client import Client
 
-CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n\n"
+CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n3. clear\n\n"
 
-SERVER_IP = '192.168.43.244' 
+SERVER_IP = '192.168.57.244' 
 
-PUBLISH_PATTERN = r"^publish\s[A-Z]:(\\(\w)+)*(\\\w+.[A-Za-z]+)\s\w+.[A-Za-z]+$"
-FETCH_PATTERN = r"^fetch\s(\w+.[A-Za-z]+)$"
-
+PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:[\/\\](?:[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*[\/\\])*[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z]+\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+$"
+FETCH_PATTERN = r"^fetch\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z0-9]+$"
+CLEAR_PATTERN = r"^clear$"
 class Client_App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -35,11 +34,28 @@ class Client_App(tk.Tk):
         self.current_page_frame.pack()
 
     def trigger(self, frame):
+        """
+        This function used for page redirection
+
+        Parameters: None
+        Return: None
+        """
+        if frame == self.main_page:
+            self.client.stop()
+            self.client_on = False
         self.current_page_frame.pack_forget()
         self.current_page_frame = frame()
         self.current_page_frame.pack()
 
     def sign_up_submit(self, username_entry, password_entry):
+        """
+        This function used for handling register submission.
+
+        Parameters:
+        + username_entry (tk.Entry): Entry for username
+        + password_entry (tk.Entry): Entry for password
+        Return: None
+        """
         username = username_entry.get()
         password = password_entry.get()
 
@@ -50,7 +66,7 @@ class Client_App(tk.Tk):
         # Send username and password to server step
         self.client = Client(SERVER_IP, 5000, username, password)
         message = self.client.register()
-        self.client.disconnect()
+        self.client.stop()
         del self.client
 
         if message == 'SERVER_CONNECT_ERROR':
@@ -66,6 +82,13 @@ class Client_App(tk.Tk):
 
     
     def sign_up(self):
+        """
+        This function used for create a sign up frame
+
+        Parameters: None
+        Return:
+        sign_up_frame (tk.Frame): The sign up frame
+        """
         sign_up_frame = tk.Frame(borderwidth = 70)
 
         sign_up_label = tk.Label(sign_up_frame, text="SIGN UP", font=("San Serif", 24, "bold"), borderwidth = 10)
@@ -91,6 +114,14 @@ class Client_App(tk.Tk):
         return sign_up_frame
 
     def check_login(self, username_entry, password_entry):
+        """
+        Used for authentication
+
+        Parameters:
+        + usename_entry (tk.Entry):
+        + password_entry (tk.Entry):
+
+        """
         username = username_entry.get()
         password = password_entry.get()
 
@@ -102,7 +133,7 @@ class Client_App(tk.Tk):
         message = self.client.log_in()
 
         if not message == 'OK':
-            self.client.disconnect()
+            self.client.stop()
             del self.client
 
         if message == 'SERVER_CONNECT_ERROR':
@@ -116,7 +147,7 @@ class Client_App(tk.Tk):
         else:
             self.username = username
             self.password = password
-            self.cliend_on = True
+            self.client_on = True
 
             messagebox.showinfo("Đăng nhập thành công", "Chào mừng, " + username + "!")
 
@@ -168,7 +199,8 @@ class Client_App(tk.Tk):
         """
         Return True when the command is in the correct format
         """
-        if re.search(FETCH_PATTERN, command) or re.search(PUBLISH_PATTERN, command):
+        if re.search(FETCH_PATTERN, command) or re.search(PUBLISH_PATTERN, command) \
+            or re.search(CLEAR_PATTERN, command):
             return True
         return False
 
@@ -180,6 +212,8 @@ class Client_App(tk.Tk):
         response (String): The result when execute the command
         """
         message = None
+        if command == "clear":
+            return "clear"
         if re.search(PUBLISH_PATTERN, command):
             _, lname, fname = command.split(" ")
             message = self.client.publish(lname, fname)
@@ -191,7 +225,7 @@ class Client_App(tk.Tk):
             _, fname = command.split(" ")
             message = self.client.fetch(fname)
             if message == "NO_AVAILABLE_HOST":
-                return "Không có peer nào đang sẵn sàng."
+                return "Không có peer nào có file hoặc đang sẵn sàng."
             else:
                 return [message, fname]
 
@@ -203,58 +237,72 @@ class Client_App(tk.Tk):
 
     # Trigger for excute command
     def execute_command(self, input_field, output_field, list_files):
+        """
+        Used
+        """
         command = input_field.get()
+        input_field.delete(0, tk.END)
         output_field.config(state=tk.NORMAL)
         if self.mode:
             if not re.search(r"^[1-9]+[0-9]*$", command):
                 output_field.insert(tk.END, "\nVui lòng nhập đúng định dạng\n\n", "color")
+                output_field.see(tk.END)
             elif int(command) > len(self.list_of_ips):
                 output_field.insert(tk.END, f"\nVui lòng chọn số trong khoảng từ 1 đến {len(self.list_of_ips)}\n\n", "color")
+                output_field.see(tk.END)
             else:
-                output_field.insert(tk.END, f"\nNgười dùng chọn {command}.\n\n", "color")
-                ip = self.list_of_ips[int(command)]
+                output_field.insert(tk.END, f"\nNgười dùng chọn peer số {command}\n", "color")
+                output_field.see(tk.END)
+                ip = self.list_of_ips[int(command)-1]
                 message = self.client.retrieve(self.fname, ip)
                 if message == 'DENIED':
-                    output_field.insert(tk.END, f"\nĐối phương từ chối.\n\n", "color")
+                    output_field.insert(tk.END, f"\nĐối phương từ chối :(\n\n", "color")
+                    output_field.see(tk.END)
                 elif message == 'UNREACHABLE':
-                    output_field.insert(tk.END, f"\nKhông kết nối được.\n\n", "color")
+                    output_field.insert(tk.END, f"\nKhông kết nối được!\n\n", "color")
+                    output_field.see(tk.END)
                 else:
                     self.add_files(self.fname, list_files)
-                    output_field.insert(tk.END, f"\nĐã nhận file thành công.\n\n", "color")   
-                    self.mode = False
+                    output_field.insert(tk.END, f"\nĐã nhận file thành công!\n\n", "color")
+                    output_field.see(tk.END)   
+                
+            self.mode = False
         else:
             output_field.insert(tk.END, f"{self.username}$ " + command + "\n", "color")
-            input_field.delete(0, tk.END)
 
             if not self.command_processing(command):
                 output_field.insert(tk.END, CLIENT_COMMAND, "color")
+                output_field.see(tk.END)
             else:
                 result = self.get_response(command)
-                if command.split(" ")[0] == "publish":
+                if command == "clear":
+                    output_field.delete(0.1, tk.END)
+                    output_field.insert(tk.END, 
+                        "Terminal [Version 1.0.0]\nCopyright (C) phuchuynh. All right reserved.\n\n", "color")
+                elif command.split(" ")[0] == "publish":
                     if result == "File đã tồn tại!":
                         output_field.insert(tk.END, f"\n{result}\n\n", "color")
+                        output_field.see(tk.END)
                     else:
                         output_field.insert(tk.END, f"\nUpload file thành công!\n\n", "color")
+                        output_field.see(tk.END)
                         self.add_files(result, list_files)
                 else:
-                    if result == "Không có peer nào đang sẵn sàng.":
+                    if result == "Không có peer nào có file hoặc đang sẵn sàng.":
                         output_field.insert(tk.END, f"\n{result}\n\n", "color")
+                        output_field.see(tk.END)
                     else:
                         output_field.insert(tk.END, f"\nDanh sách các peer:\n", "color")
+                        output_field.see(tk.END)
                         self.list_of_ips, self.fname = result
                         for i in range(0, len(self.list_of_ips)):
-                            output_field.insert(tk.END, f"*{i}. {self.list_of_ips[i]}\n", "color")
+                            output_field.insert(tk.END, f"{i+1}. {self.list_of_ips[i]}\n", "color")
+                            output_field.see(tk.END)
                         output_field.insert(tk.END, f"\nHãy chọn peer bạn mong muốn fetch!\n", "color")
+                        output_field.see(tk.END)
                         self.mode = True
 
         output_field.config(state=tk.DISABLED)
-
-    def log_out(self):
-        self.client.log_out()
-        self.client.disconnect()
-        self.cliend_on = False
-        self.trigger(self.main_page)
-
     
     def terminal(self):
         terminal_frame = tk.Frame()
@@ -262,7 +310,7 @@ class Client_App(tk.Tk):
         header = tk.Label(terminal_frame, text = f"Hello, {self.username}", font=("San Serif", 11, "bold"))
         header.grid(row = 0, column = 0, padx = 5, pady = 5)
 
-        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = self.log_out)
+        log_out_button = tk.Button(terminal_frame, text = "Log Out", command = lambda: self.trigger(self.main_page))
         log_out_button.grid(row = 0, column = 89, padx = 5, pady = 5)
         
 
@@ -276,6 +324,9 @@ class Client_App(tk.Tk):
         list_files.grid(row = 1, column = 70, columnspan = 20, padx = 5, pady = 5)
         list_files_header = "         My Repository      \n\n"
         list_files.insert(tk.END, list_files_header)
+        list_of_files = self.client.get_fname()
+        for i in list_of_files:
+            list_files.insert(tk.END, f"* {i}\n")
         list_files.config(state = tk.DISABLED)
 
         input_header = tk.Label(terminal_frame, text = ">>>")
@@ -290,8 +341,8 @@ class Client_App(tk.Tk):
     
     def close(self):
         if self.client_on:
-            self.client.log_out()
-            self.client.disconnect()
+            self.client.stop()
+        self.destroy()
 
 
 if __name__ == "__main__":

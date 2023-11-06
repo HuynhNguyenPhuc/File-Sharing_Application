@@ -1,5 +1,6 @@
 import time
 import socket
+import os
 import json
 from queue import Queue
 from threading import Thread, Lock
@@ -16,6 +17,12 @@ class Server(object):
         # Create dictionary for TCP table
         self.hostname_to_ip = {}
         self.ip_to_hostname = {}
+        if not os.path.exists("hostname_file.json") or os.path.getsize("hostname_file.json") == 0:
+            with open("hostname_file.json", "w") as fp:
+                fp.write("{}")
+        if not os.path.exists("hostname_list.json") or os.path.getsize("hostname_list.json") == 0:
+            with open("hostname_list.json", "w") as fp:
+                fp.write("{}")
         with open("hostname_file.json", "r") as fp:
             self.hostname_file = json.load(fp)
         with open("hostname_list.json", "r") as fp:

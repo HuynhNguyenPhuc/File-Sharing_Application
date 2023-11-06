@@ -27,11 +27,6 @@ class Client_App(tk.Tk):
         self.list_of_ips = None
         self.fname = None
 
-        if not os.path.exists("published_file.json"):
-            with open("published_file.json", "w") as fp:
-                fp.write("{}")
-            fp.close()
-
         self.title("File Sharing Application")
         self.minsize(600, 400)
 
@@ -264,7 +259,7 @@ class Client_App(tk.Tk):
                 ip = self.list_of_ips[int(command)-1]
                 message = self.client.retrieve(self.fname, ip)
                 if message == 'DENIED':
-                    output_field.insert(tk.END, f"\nĐối phương từ chối :(\n\n", "color")
+                    output_field.insert(tk.END, f"\nMáy đối phương không có file hoặc đường dẫn bị lỗi :(\n\n", "color")
                     output_field.see(tk.END)
                 elif message == 'UNREACHABLE':
                     output_field.insert(tk.END, f"\nKhông kết nối được!\n\n", "color")
@@ -363,7 +358,7 @@ def main():
     server_port = int(sys.argv[2])
     print(server_port)
 
-    app = Client_App(server_port)
+    app = Client_App(server_ip, server_port)
     app.protocol("WM_DELETE_WINDOW", app.close)
     app.mainloop()
 

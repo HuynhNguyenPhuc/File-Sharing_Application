@@ -3,7 +3,7 @@ from tkinter import messagebox
 import re
 from threading import Thread, Lock
 import time
-import os, sys
+import sys
 
 from server import Server
 
@@ -25,16 +25,6 @@ class Server_App(tk.Tk):
         self.server = None
         self.server_port = server_port
         self.server_on = None
-
-        if not os.path.exists("hostname_file.json"):
-            with open("hostname_file.json", "w") as fp:
-                fp.write("{}")
-            fp.close()
-        
-        if not os.path.exists("hostname_list.json"):
-            with open("hostname_list.json", "w") as fp:
-                fp.write("{}")
-            fp.close()
 
         self.title("File Sharing Application")
         self.minsize(600, 400)

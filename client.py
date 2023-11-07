@@ -382,8 +382,18 @@ class Client:
         
         # Publish file
         self.publish(os.path.abspath(dest_dir + dest_file), fname)
-        retrieve_time = "{:,.8f}".format(end_time - start_time)
-        return ('OK', retrieve_time)
+        
+        # Evaluation and statistics
+        retrieve_time = end_time - start_time # seconds
+        file_size = os.path.getsize(dest_dir + dest_file) # bytes
+        speed = 8 / 1000 * file_size / retrieve_time # kbps
+        file_unit = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+        unit = 0
+        for i in range(5):
+            if file_size > 1024:
+                file_size /= 1024
+                unit += 1
+        return (str(int(file_size)) + file_unit[unit], "{:,.8f}".format(retrieve_time), "{:,.2f}".format(speed))
     
     def is_login(self):
         return self.__login_succeeded

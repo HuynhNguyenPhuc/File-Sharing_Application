@@ -150,13 +150,17 @@ class Server_App(tk.Tk):
                 break
             self.server.queue_mutex.acquire()
             if not self.server.output_queue.empty():
+                server_output.config(state=tk.NORMAL)
                 output = self.server.output_queue.get()
                 server_output.insert(tk.END, output)
                 server_output.see(tk.END)
+                server_output.config(state=tk.DISABLED)
             self.server.queue_mutex.release()
 
     def clear_output(self, server_output):
-        server_output.delete(0, tk.END)
+        server_output.config(state = tk.NORMAL)
+        server_output.delete(0.1, tk.END)
+        server_output.config(state = tk.DISABLED)
 
     # Trigger for excute command
     def execute_command(self, input_field, output_field):
@@ -249,4 +253,4 @@ def main():
     app.mainloop()
 
 if __name__ == "__main__":
-   main()
+    main()

@@ -1,13 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox
 import re
-import os, sys
+import sys
 
 from client import Client
 
 CLIENT_COMMAND = "\n**** Invalid syntax ****\nFormat of client's commands\n1. publish lname fname\n2. fetch fname\n3. clear\n\n"
 
-PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:[\/\\](?:[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*[\/\\])*[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z]+\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+$"
+PUBLISH_PATTERN = r"^publish\s[a-zA-Z]:[\/\\](?:[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*[\/\\])*[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]*\.[A-Za-z0-9]+$"
 FETCH_PATTERN = r"^fetch\s[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"|,.<>?]+[\sa-zA-Z0-9!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]*\.[A-Za-z0-9]+$"
 CLEAR_PATTERN = r"^clear$"
 
@@ -232,7 +232,11 @@ class Client_App(tk.Tk):
             
     def add_files(self, fname, list_files):
         list_files.config(state = tk.NORMAL)
-        list_files.insert(tk.END, f"* {fname}\n")
+        list_files.delete(0.1, tk.END)
+        list_files.insert(tk.END, "         My Repository      \n\n")
+        list_fnames = self.client.get_fname()
+        for fname in list_fnames:
+            list_files.insert(tk.END, f"* {fname}\n")
         list_files.config(state = tk.DISABLED)
 
     # Trigger for excute command
@@ -262,9 +266,9 @@ class Client_App(tk.Tk):
                     output_field.insert(tk.END, f"\nKhông kết nối được!\n\n", "color")
                     output_field.see(tk.END)
                 else:
-                    message, download_time = message
+                    file_size, download_time, speed = message
                     self.add_files(self.fname, list_files)
-                    output_field.insert(tk.END, f"\nĐã nhận file thành công! Thời gian tải file: {download_time} (s)\n\n", "color")
+                    output_field.insert(tk.END, f"\nĐã nhận file thành công!\nDung lượng: {file_size}\nThời gian tải: {download_time} (s)\nTốc độ tải file: {speed} (kbps)\n\n", "color")
                     output_field.see(tk.END)   
                 
             self.mode = False
@@ -328,8 +332,7 @@ class Client_App(tk.Tk):
 
         list_files = tk.Text(terminal_frame, background = "white", width = 30)
         list_files.grid(row = 1, column = 70, columnspan = 20, padx = 5, pady = 5)
-        list_files_header = "         My Repository      \n\n"
-        list_files.insert(tk.END, list_files_header)
+        list_files.insert(tk.END, "         My Repository      \n\n")
         list_of_files = self.client.get_fname()
         for i in list_of_files:
             list_files.insert(tk.END, f"* {i}\n")
@@ -366,4 +369,4 @@ def main():
     app.mainloop()
 
 if __name__ == "__main__":
-   main()
+    main()

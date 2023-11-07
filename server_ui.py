@@ -150,9 +150,11 @@ class Server_App(tk.Tk):
                 break
             self.server.queue_mutex.acquire()
             if not self.server.output_queue.empty():
+                server_output.config(state=tk.NORMAL)
                 output = self.server.output_queue.get()
                 server_output.insert(tk.END, output)
                 server_output.see(tk.END)
+                server_output.config(state=tk.DISABLED)
             self.server.queue_mutex.release()
 
     def clear_output(self, server_output):

@@ -336,7 +336,7 @@ class Server(object):
         - Nonef
         """
         fname = message.get_info()
-        ip_with_file_list = self.search(fname)
+        ip_with_file_list = self.search(fname, client_socket.getpeername()[0])
         payload = {'fname': fname, 'avail_ips': ip_with_file_list}
         response_message = Message(Header.FETCH, Type.RESPONSE, payload)
         self.send(client_socket, response_message)
@@ -345,7 +345,7 @@ class Server(object):
         status += f"Status: OK\n"
         return status
 
-    def search(self, fname):
+    def search(self, fname, asking_host_ip):
         """
         This method is used to list out all the IP addresses which are alive and have file identified by fname
 
@@ -357,7 +357,7 @@ class Server(object):
         """
         ip_with_file_list = []
         for hostname, file_list in self.hostname_file.items():
-            if fname in file_list:
+            if asking_host_ip != self.hostname_to_ip[hostname] and fname in file_list:
                 if self.check_active(hostname):
                     ip_with_file_list.append(self.hostname_to_ip[hostname])
         return ip_with_file_list

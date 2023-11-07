@@ -232,7 +232,11 @@ class Client_App(tk.Tk):
             
     def add_files(self, fname, list_files):
         list_files.config(state = tk.NORMAL)
-        list_files.insert(tk.END, f"* {fname}\n")
+        list_files.delete(0.1, tk.END)
+        list_files.insert(tk.END, "         My Repository      \n\n")
+        list_fnames = self.client.get_fname()
+        for fname in list_fnames:
+            list_files.insert(tk.END, f"* {fname}\n")
         list_files.config(state = tk.DISABLED)
 
     # Trigger for excute command
@@ -328,8 +332,7 @@ class Client_App(tk.Tk):
 
         list_files = tk.Text(terminal_frame, background = "white", width = 30)
         list_files.grid(row = 1, column = 70, columnspan = 20, padx = 5, pady = 5)
-        list_files_header = "         My Repository      \n\n"
-        list_files.insert(tk.END, list_files_header)
+        list_files.insert(tk.END, "         My Repository      \n\n")
         list_of_files = self.client.get_fname()
         for i in list_of_files:
             list_files.insert(tk.END, f"* {i}\n")

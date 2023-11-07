@@ -8,6 +8,7 @@ from message import Message, Type, Header
 import os
 import shutil
 import json
+import time
 
 class Client:
     def __init__(self, server_host, server_port, client_hostname, client_password):
@@ -370,15 +371,19 @@ class Client:
         # File transfer protocol begins
         ftp = FTP(host)
         ftp.login('mmt', 'hk231')
+        
+        start_time = time.time()
         with open(dest_dir + dest_file, 'wb') as fp:
             ftp.retrbinary(f'RETR {fname}', fp.write)
+        end_time = time.time()
         
         ftp.quit()
         # File transfer protocol ends
         
         # Publish file
         self.publish(os.path.abspath(dest_dir + dest_file), fname)
-        return 'OK'
+        retrieve_time = "{:,.8f}".format(end_time - start_time)
+        return ('OK', retrieve_time)
     
     def is_login(self):
         return self.__login_succeeded

@@ -266,9 +266,9 @@ class Client_App(tk.Tk):
                     output_field.insert(tk.END, f"\nKhông kết nối được!\n\n", "color")
                     output_field.see(tk.END)
                 else:
-                    message, download_time = message
+                    file_size, download_time, speed = message
                     self.add_files(self.fname, list_files)
-                    output_field.insert(tk.END, f"\nĐã nhận file thành công! Thời gian tải file: {download_time} (s)\n\n", "color")
+                    output_field.insert(tk.END, f"\nĐã nhận file thành công!\nDung lượng: {file_size}\nThời gian tải: {download_time} (s)\nTốc độ tải file: {speed} (kbps)\n\n", "color")
                     output_field.see(tk.END)   
                 
             self.mode = False

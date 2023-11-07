@@ -158,7 +158,7 @@ class Server_App(tk.Tk):
             self.server.queue_mutex.release()
 
     def clear_output(self, server_output):
-        server_output.delete(0, tk.END)
+        server_output.delete(0.1, tk.END)
 
     # Trigger for excute command
     def execute_command(self, input_field, output_field):
